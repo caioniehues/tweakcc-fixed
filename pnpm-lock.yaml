@@ -23,9 +23,6 @@ importers:
       react:
         specifier: ^18.2.0
         version: 18.3.1
-      react-devtools-core:
-        specifier: ^4.19.1
-        version: 4.19.1
     devDependencies:
       '@eslint/js':
         specifier: ^9.31.0
@@ -3162,6 +3159,7 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
+    optional: true
 
   react-is@16.13.1: {}
 
@@ -3337,7 +3335,8 @@ snapshots:
 
   shebang-regex@3.0.0: {}
 
-  shell-quote@1.8.3: {}
+  shell-quote@1.8.3:
+    optional: true
 
   side-channel-list@1.0.0:
     dependencies:
@@ -3596,7 +3595,8 @@ snapshots:
       string-width: 5.1.2
       strip-ansi: 7.1.0
 
-  ws@7.5.10: {}
+  ws@7.5.10:
+    optional: true
 
   ws@8.18.3: {}
 

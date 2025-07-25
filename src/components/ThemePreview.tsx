@@ -13,11 +13,11 @@ export function ThemePreview({ theme }: ThemePreviewProps) {
       </Box>
       <Box borderStyle="single" borderColor="gray" padding={1}>
         <Box flexDirection="column">
-          <Text>╭───────────────────────────────────────╮</Text>
+          <Text>╭─────────────────────────────────────────────╮</Text>
           <Text>
             │ <Text color={theme.colors.secondaryText}>1</Text>{' '}
             <Text color={theme.colors.text}>function greet() {'{'}</Text>
-            {'                '}│
+            {'                        '}│
           </Text>
           <Text>
             │ <Text color={theme.colors.secondaryText}>2</Text>{' '}
@@ -25,13 +25,13 @@ export function ThemePreview({ theme }: ThemePreviewProps) {
               backgroundColor={theme.colors.diffRemoved}
               color={theme.colors.text}
             >
-              - console.log(&ldquo;
+              - console.log("
               <Text backgroundColor={theme.colors.diffRemovedWord}>
                 Hello, World!
               </Text>
-              &rdquo;);
+              ");
             </Text>
-            {'  '}│
+            {'           '}│
           </Text>
           <Text>
             │ <Text color={theme.colors.secondaryText}>2</Text>{' '}
@@ -39,13 +39,13 @@ export function ThemePreview({ theme }: ThemePreviewProps) {
               backgroundColor={theme.colors.diffAdded}
               color={theme.colors.text}
             >
-              + console.log(&ldquo;
+              + console.log("
               <Text backgroundColor={theme.colors.diffAddedWord}>
                 Hello, Claude!
               </Text>
-              &rdquo;);
-            </Text>{' '}
-            │
+              ");
+            </Text>
+            {'          '}│
           </Text>
           <Text color={theme.colors.warning}>
             ╭─────────────────────────────────────────────╮
@@ -73,7 +73,7 @@ export function ThemePreview({ theme }: ThemePreviewProps) {
             <Text color={theme.colors.claude}>│</Text>
             <Text color={theme.colors.secondaryText} italic>
               {' '}
-              /help for help, /status for your current s
+              /help for help, /status for your current set
             </Text>
             <Text color={theme.colors.claude}>│</Text>
           </Text>
@@ -85,7 +85,10 @@ export function ThemePreview({ theme }: ThemePreviewProps) {
           </Text>
           <Text>
             <Text color={theme.colors.bashBorder}>│ !</Text>
-            <Text color="white"> ls </Text>
+            <Text color="white">
+              {' '}
+              ls{'                                        '}
+            </Text>
             <Text color={theme.colors.bashBorder}>│</Text>
           </Text>
           <Text color={theme.colors.planMode}>
@@ -129,8 +132,10 @@ export function ThemePreview({ theme }: ThemePreviewProps) {
             >
               {' '}
               Allow{' '}
-            </Text>{' '}
-            Deny Workspace <Text color={theme.colors.permission}>│</Text>
+            </Text>
+            {'  '}
+            Deny{'   '}Workspace{'      '}
+            <Text color={theme.colors.permission}>│</Text>
           </Text>
           <Text color={theme.colors.secondaryText}>&gt; list the dir</Text>
           <Text>
