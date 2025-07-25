@@ -12,6 +12,16 @@ tweakcc works by patching the Claude Code's minified `cli.js` file.  When you up
 
 Works with Claude Code 1.0.60.
 
+## Running
+
+```
+git clone https://github.com/Piebald-AI/tweakcc.git
+cd tweakcc
+pnpm i
+pnpm build
+node dist/index.js
+```
+
 ## Demo
 
 Coming soon.
