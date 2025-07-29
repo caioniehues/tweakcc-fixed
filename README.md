@@ -46,6 +46,12 @@ Run Claude Code!
 
 <img alt="Customized Claude Code demo" src="https://raw.githubusercontent.com/Piebald-AI/tweakcc/main/assets/claude_demo.png" width="600">
 
+## FAQ
+
+### How can I customize my Claude Code theme?
+
+Run `npx tweakcc`, go to `Themes`, and modify existing themes or create new ones.  Then go back to the main menu and choose `Apply customizations to cli.js`.
+
 ## License
 
 [MIT](https://github.com/Piebald-AI/tweakcc/blob/main/LICENSE)
