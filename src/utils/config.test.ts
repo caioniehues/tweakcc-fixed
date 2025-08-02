@@ -1,14 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as config from './config.js';
-import { CLIJS_SEARCH_PATHS, CONFIG_DIR, CONFIG_FILE, DEFAULT_SETTINGS } from './types.js';
+import {
+  ClaudeCodeInstallationInfo,
+  CLIJS_SEARCH_PATHS,
+  CONFIG_DIR,
+  CONFIG_FILE,
+  DEFAULT_SETTINGS,
+} from './types.js';
 import fs from 'node:fs/promises';
+import type { Stats } from 'node:fs';
 import path from 'node:path';
 
 vi.mock('node:fs/promises');
 
 const createEnoent = () => {
-  const error = new Error('ENOENT: no such file or directory');
-  (error as any).code = 'ENOENT';
+  const error: NodeJS.ErrnoException = new Error(
+    'ENOENT: no such file or directory'
+  );
+  error.code = 'ENOENT';
   return error;
 };
 
@@ -21,7 +30,7 @@ describe('config.ts', () => {
 
   describe('ensureConfigDir', () => {
     it('should create the config directory', async () => {
-      const mkdirSpy = vi.spyOn(fs, 'mkdir').mockResolvedValue(undefined as any);
+      const mkdirSpy = vi.spyOn(fs, 'mkdir').mockResolvedValue(undefined);
       await config.ensureConfigDir();
       expect(mkdirSpy).toHaveBeenCalledWith(CONFIG_DIR, { recursive: true });
     });
@@ -42,7 +51,7 @@ describe('config.ts', () => {
 
     it('should return the parsed config if the file exists', async () => {
       const mockConfig = { ccVersion: '1.0.0' };
-      vi.spyOn(fs, 'readFile').mockResolvedValue(JSON.stringify(mockConfig) as any);
+      vi.spyOn(fs, 'readFile').mockResolvedValue(JSON.stringify(mockConfig));
       const result = await config.readConfigFile();
       expect(result).toEqual(expect.objectContaining(mockConfig));
     });
@@ -50,7 +59,9 @@ describe('config.ts', () => {
 
   describe('updateConfigFile', () => {
     it('should update the config file', async () => {
-      const writeFileSpy = vi.spyOn(fs, 'writeFile').mockResolvedValue(undefined as any);
+      const writeFileSpy = vi
+        .spyOn(fs, 'writeFile')
+        .mockResolvedValue(undefined);
       vi.spyOn(fs, 'readFile').mockRejectedValue(createEnoent()); // Start with default config
       const newSettings = { ...DEFAULT_SETTINGS, themes: [] };
       await config.updateConfigFile(c => {
@@ -67,12 +78,17 @@ describe('config.ts', () => {
 
   describe('restoreClijsFromBackup', () => {
     it('should copy the backup file and update the config', async () => {
-      const copyFileSpy = vi.spyOn(fs, 'copyFile').mockResolvedValue(undefined as any);
-      vi.spyOn(fs, 'writeFile').mockResolvedValue(undefined as any);
+      const copyFileSpy = vi.spyOn(fs, 'copyFile').mockResolvedValue(undefined);
+      vi.spyOn(fs, 'writeFile').mockResolvedValue(undefined);
       vi.spyOn(fs, 'readFile').mockRejectedValue(createEnoent());
-      const ccInstInfo = { cliPath: '/fake/path/cli.js' } as any;
+      const ccInstInfo = {
+        cliPath: '/fake/path/cli.js',
+      } as ClaudeCodeInstallationInfo;
       await config.restoreClijsFromBackup(ccInstInfo);
-      expect(copyFileSpy).toHaveBeenCalledWith(expect.any(String), ccInstInfo.cliPath);
+      expect(copyFileSpy).toHaveBeenCalledWith(
+        expect.any(String),
+        ccInstInfo.cliPath
+      );
       expect(fs.writeFile).toHaveBeenCalled();
     });
   });
@@ -80,7 +96,16 @@ describe('config.ts', () => {
   describe('findClaudeCodeInstallation', () => {
     it('should include the brew path on non-windows systems', () => {
       if (process.platform !== 'win32') {
-        expect(CLIJS_SEARCH_PATHS).toContain(path.join('/opt', 'homebrew', 'lib', 'node_modules', '@anthropic-ai', 'claude-code'));
+        expect(CLIJS_SEARCH_PATHS).toContain(
+          path.join(
+            '/opt',
+            'homebrew',
+            'lib',
+            'node_modules',
+            '@anthropic-ai',
+            'claude-code'
+          )
+        );
       }
     });
 
@@ -90,16 +115,19 @@ describe('config.ts', () => {
         changesApplied: false,
         ccVersion: '',
         lastModified: '',
-        settings: {} as any,
+        settings: DEFAULT_SETTINGS,
       };
 
       const mockCliPath = path.join(CLIJS_SEARCH_PATHS[0], 'cli.js');
-      const mockPackageJsonPath = path.join(CLIJS_SEARCH_PATHS[0], 'package.json');
+      const mockPackageJsonPath = path.join(
+        CLIJS_SEARCH_PATHS[0],
+        'package.json'
+      );
       const mockPackageJson = JSON.stringify({ version: '1.2.3' });
 
-      vi.spyOn(fs, 'readFile').mockImplementation(async (p) => {
+      vi.spyOn(fs, 'readFile').mockImplementation(async p => {
         if (p === mockPackageJsonPath) {
-          return mockPackageJson as any;
+          return mockPackageJson;
         }
         throw new Error('File not found');
       });
@@ -119,11 +147,13 @@ describe('config.ts', () => {
         changesApplied: false,
         ccVersion: '',
         lastModified: '',
-        settings: {} as any,
+        settings: DEFAULT_SETTINGS,
       };
 
       vi.spyOn(fs, 'readFile').mockRejectedValue(new Error('File not found'));
-      const processExitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+      const processExitSpy = vi
+        .spyOn(process, 'exit')
+        .mockImplementation(() => undefined as never);
 
       await config.findClaudeCodeInstallation(mockConfig);
 
@@ -133,12 +163,20 @@ describe('config.ts', () => {
 
   describe('startupCheck', () => {
     it('should backup cli.js if no backup exists', async () => {
-      const ccInstInfo = { cliPath: '/fake/path/cli.js', version: '1.0.0' } as any;
+      const ccInstInfo: ClaudeCodeInstallationInfo = {
+        cliPath: '/fake/path/cli.js',
+        version: '1.0.0',
+        packageJsonPath: '/fake/path/package.json',
+      };
       vi.spyOn(fs, 'stat').mockRejectedValue(createEnoent()); // Backup doesn't exist
-      const copyFileSpy = vi.spyOn(fs, 'copyFile').mockResolvedValue(undefined as any);
-      vi.spyOn(fs, 'readFile').mockResolvedValue(JSON.stringify({ ccVersion: '1.0.0' }) as any);
-      vi.spyOn(fs, 'writeFile').mockResolvedValue(undefined as any);
-      vi.spyOn(config, 'findClaudeCodeInstallation').mockResolvedValue(ccInstInfo);
+      const copyFileSpy = vi.spyOn(fs, 'copyFile').mockResolvedValue(undefined);
+      vi.spyOn(fs, 'readFile').mockResolvedValue(
+        JSON.stringify({ ccVersion: '1.0.0' })
+      );
+      vi.spyOn(fs, 'writeFile').mockResolvedValue(undefined);
+      vi.spyOn(config, 'findClaudeCodeInstallation').mockResolvedValue(
+        ccInstInfo
+      );
 
       await config.startupCheck();
 
@@ -146,13 +184,21 @@ describe('config.ts', () => {
     });
 
     it('should re-backup if the version has changed', async () => {
-      const ccInstInfo = { cliPath: '/fake/path/cli.js', version: '2.0.0' } as any;
-      vi.spyOn(fs, 'stat').mockResolvedValue({} as any); // Backup exists
-      const unlinkSpy = vi.spyOn(fs, 'unlink').mockResolvedValue(undefined as any);
-      const copyFileSpy = vi.spyOn(fs, 'copyFile').mockResolvedValue(undefined as any);
-      vi.spyOn(fs, 'readFile').mockResolvedValue(JSON.stringify({ ccVersion: '1.0.0' }) as any);
-      vi.spyOn(fs, 'writeFile').mockResolvedValue(undefined as any);
-      vi.spyOn(config, 'findClaudeCodeInstallation').mockResolvedValue(ccInstInfo);
+      const ccInstInfo: ClaudeCodeInstallationInfo = {
+        cliPath: '/fake/path/cli.js',
+        version: '2.0.0',
+        packageJsonPath: '/fake/path/package.json',
+      };
+      vi.spyOn(fs, 'stat').mockResolvedValue({} as Stats);
+      const unlinkSpy = vi.spyOn(fs, 'unlink').mockResolvedValue(undefined);
+      const copyFileSpy = vi.spyOn(fs, 'copyFile').mockResolvedValue(undefined);
+      vi.spyOn(fs, 'readFile').mockResolvedValue(
+        JSON.stringify({ ccVersion: '1.0.0' })
+      );
+      vi.spyOn(fs, 'writeFile').mockResolvedValue(undefined);
+      vi.spyOn(config, 'findClaudeCodeInstallation').mockResolvedValue(
+        ccInstInfo
+      );
 
       const result = await config.startupCheck();
 

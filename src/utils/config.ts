@@ -84,7 +84,7 @@ export const findClaudeCodeInstallation = async (
   config: TweakccConfig
 ): Promise<ClaudeCodeInstallationInfo> => {
   if (config.ccInstallationDir) {
-    CLIJS_SEARCH_PATHS.unshift(config.ccInstallationDir)
+    CLIJS_SEARCH_PATHS.unshift(config.ccInstallationDir);
   }
 
   for (const searchPath of CLIJS_SEARCH_PATHS) {
@@ -116,16 +116,16 @@ https://github.com/piebald-ai/tweakcc/issues and tell us where you have it--we'l
 location to our search list and release an update today!  Or you can specify the path to its
 \`cli.js\` file in ${CONFIG_FILE}:
 {
-  "ccInstallationDir": "${process.platform == 'win32'
+  "ccInstallationDir": "${
+    process.platform == 'win32'
       ? 'C:\\absolute\\path\\to\\@anthropic-ai\\claude-code'
       : '/absolute/path/to/@anthropic-ai/claude-code'
-    }"
+  }"
 }
 (Note: don't include cli.js in the path.)\x1b[0m
 `);
   process.exit(1);
-
-}
+};
 
 const backupClijs = async (ccInstInfo: ClaudeCodeInstallationInfo) => {
   await ensureConfigDir();

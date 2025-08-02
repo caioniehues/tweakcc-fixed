@@ -296,7 +296,6 @@ export const writeThinkerSymbolSpeed = (
   return newContent;
 };
 
-
 const getThinkerVerbsLocation = (
   oldFile: string
 ): { okayVerbs: LocationResult } | null => {

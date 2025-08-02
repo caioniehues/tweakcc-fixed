@@ -396,11 +396,20 @@ try {
   if (fs.existsSync(nvmDir)) {
     const versions = fs.readdirSync(nvmDir);
     for (const version of versions) {
-      CLIJS_SEARCH_PATHS.push(path.join(nvmDir, version, 'lib', 'node_modules', '@anthropic-ai', 'claude-code'));
+      CLIJS_SEARCH_PATHS.push(
+        path.join(
+          nvmDir,
+          version,
+          'lib',
+          'node_modules',
+          '@anthropic-ai',
+          'claude-code'
+        )
+      );
     }
   }
 } catch {
-  console.log("Could not add NVM paths to search list");
+  console.log('Could not add NVM paths to search list');
 }
 if (process.platform != 'win32') {
   // prettier-ignore
@@ -409,4 +418,3 @@ if (process.platform != 'win32') {
   // prettier-ignore
   CLIJS_SEARCH_PATHS.push(path.join('/opt', 'homebrew', 'lib', 'node_modules', '@anthropic-ai', 'claude-code'));
 }
-
