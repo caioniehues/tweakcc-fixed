@@ -54,6 +54,18 @@ Run Claude Code!
 
 Run `npx tweakcc`, go to `Themes`, and modify existing themes or create new ones.  Then go back to the main menu and choose `Apply customizations to cli.js`.
 
+### Why isn't all the text in Claude Code is getting its color changed?
+
+Some of the text Claude Code outputs has no coloring information at and is rendered using your terminal's default text foreground color.
+
+### How can I disable color altogether?
+
+You can use the [`FORCE_COLOR`](https://force-color.org/) environment variable, a convention which many CLI tools including Claude Code respect.  Set it to `0` to disable colors entirely in Claude Code.
+
+### Why isn't my new theme being applied?
+
+You may have forgotten to actually set Claude Code's theme to your new theme.  Run `claude` and then use `/theme` to switch to your new theme.
+
 ## License
 
 [MIT](https://github.com/Piebald-AI/tweakcc/blob/main/LICENSE)
