@@ -61,6 +61,10 @@ You can use the [`FORCE_COLOR`](https://force-color.org/) environment variable, 
 
 You may have forgotten to actually set Claude Code's theme to your new theme.  Run `claude` and then use `/theme` to switch to your new theme.
 
+### What is `tweakcn`?
+
+[`tweakcn`](https://github.com/jnsahaj/tweakcn), though similarly named, is unrelated to `tweakcc` or Claude Code.  It's a tool for editing your [shadcn/ui](https://github.com/shadcn-ui/ui) themes.  Check it out!
+
 ## License
 
 [MIT](https://github.com/Piebald-AI/tweakcc/blob/main/LICENSE)
