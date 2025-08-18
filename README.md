@@ -30,7 +30,7 @@ Works with Claude Code 1.0.83.
 
 ## Running
 
-Run with installing it with `npx tweack`.  Or build and run it locally:
+Run with installing it with `npx tweakcc`.  Or build and run it locally:
 
 ```bash
 git clone https://github.com/Piebald-AI/tweakcc.git
@@ -55,7 +55,7 @@ Run `npx tweakcc`, go to `Themes`, and modify existing themes or create a new on
 
 Some of the text Claude Code outputs has no coloring information at all, and unfortunately, that text is rendered using your terminal's default text foreground color and can't be customized.
 
-#### Is there a way to disable colored output in Claude Code altogether? 
+#### Is there a way to disable colored output in Claude Code altogether?
 
 Yes!  You can use the [`FORCE_COLOR`](https://force-color.org/) environment variable, a convention which many CLI tools including Claude Code respect.  Set it to `0` to disable colors entirely in Claude Code.
 

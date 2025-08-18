@@ -40,7 +40,7 @@ const systemMenuItems: SelectItem[] = [
   },
   {
     name: MainMenuItem.OPEN_CONFIG,
-    desc: `Opens your tweack cc config file (${CONFIG_FILE})`,
+    desc: `Opens your tweakcc config file (${CONFIG_FILE})`,
   },
   {
     name: MainMenuItem.OPEN_CLI,
