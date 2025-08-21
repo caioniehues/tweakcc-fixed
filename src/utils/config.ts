@@ -29,7 +29,7 @@ export const readConfigFile = async (): Promise<TweakccConfig> => {
   };
   try {
     const content = await fs.readFile(CONFIG_FILE, 'utf8');
-    let readConfig: TweakccConfig = { ...config, ...JSON.parse(content) };
+    const readConfig: TweakccConfig = { ...config, ...JSON.parse(content) };
 
     // In v1.1.0 thinkingVerbs.punctuation was renamed to thinkingVerbs.format.  This should catch
     // old configs.
@@ -49,7 +49,7 @@ export const readConfigFile = async (): Promise<TweakccConfig> => {
       if (readTheme) {
         // Add any missing colors.
         for (const [key, value] of Object.entries(defaultTheme)) {
-          if (!readTheme.hasOwnProperty(key)) {
+          if (!Object.hasOwn(readTheme, key)) {
             (readTheme as unknown as Record<string, string>)[key] = value;
           }
         }

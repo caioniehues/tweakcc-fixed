@@ -601,7 +601,7 @@ export const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 export const CLIJS_BACKUP_FILE = path.join(CONFIG_DIR, 'cli.js.backup');
 
 const getClijsSearchPaths = (): string[] => {
-  let paths: string[] = [];
+  const paths: string[] = [];
 
   const home =
     process.platform == 'win32'

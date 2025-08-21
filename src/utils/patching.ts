@@ -406,7 +406,8 @@ const getThinkerFormatLocation = (
   fmtLocation: LocationResult;
   curVerb: string;
 } | null => {
-  const approxAreaPattern = /spinnerTip:\w+,(?:\w+:\w+,)*overrideMessage:\w+,.{300}/;
+  const approxAreaPattern =
+    /spinnerTip:\w+,(?:\w+:\w+,)*overrideMessage:\w+,.{300}/;
   const approxAreaMatch = oldFile.match(approxAreaPattern);
 
   if (!approxAreaMatch || approxAreaMatch.index == undefined) {
