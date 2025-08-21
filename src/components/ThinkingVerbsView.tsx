@@ -164,9 +164,7 @@ export function ThinkingVerbsView({ onBack }: ThinkingVerbsViewProps) {
 
         <Box flexDirection="column">
           <Text>
-            <Text
-              color={selectedOption === 'format' ? 'yellow' : undefined}
-            >
+            <Text color={selectedOption === 'format' ? 'yellow' : undefined}>
               {selectedOption === 'format' ? '❯ ' : '  '}
             </Text>
             <Text

@@ -209,7 +209,9 @@ export function ThemePreview({ theme }: ThemePreviewProps) {
             </Text>
           </Text>
           <Text>
-            <Text color={theme.colors.ide}>◯ IDE connected  ⧉ 44 lines selected</Text>
+            <Text color={theme.colors.ide}>
+              ◯ IDE connected ⧉ 44 lines selected
+            </Text>
           </Text>
           <Text>
             <Text bold color={theme.colors.secondaryText}>

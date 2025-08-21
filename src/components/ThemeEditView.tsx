@@ -213,15 +213,22 @@ export function ThemeEditView({ onBack, themeId }: ThemeEditViewProps) {
     key: keyof typeof currentTheme.colors
   ): string => {
     const descriptions: Record<keyof typeof currentTheme.colors, string> = {
-      claude: 'Claude branding color.  Used for the Claude logo, the welcome message, and the thinking text.',
-      claudeShimmer: 'Color used for the shimmering effect on the thinking verb.',
+      claude:
+        'Claude branding color.  Used for the Claude logo, the welcome message, and the thinking text.',
+      claudeShimmer:
+        'Color used for the shimmering effect on the thinking verb.',
       text: 'Code color.  Used in diffs.',
-      inverseText: 'Inverse text color.  Used for the text of tabs, where the background is filled in.',
-      secondaryText: 'Secondary/dimmed text.  Used for keyboard shortcuts and other help text.',
+      inverseText:
+        'Inverse text color.  Used for the text of tabs, where the background is filled in.',
+      secondaryText:
+        'Secondary/dimmed text.  Used for keyboard shortcuts and other help text.',
       secondaryBorder: 'Secondary border color.  Used for various boxes.',
-      suggestion: 'Suggestion text color.  Used for suggestions for theme names and various other things.',
-      remember: 'Remember/note color.  Used for various text relating to memories.',
-      success: 'Success indicator.  Used for the bullet on successful tool calls, and various success messages (such as sign in successful).',
+      suggestion:
+        'Suggestion text color.  Used for suggestions for theme names and various other things.',
+      remember:
+        'Remember/note color.  Used for various text relating to memories.',
+      success:
+        'Success indicator.  Used for the bullet on successful tool calls, and various success messages (such as sign in successful).',
       error: 'Error indicator',
       warning: 'Warning indicator',
       autoAccept: 'Auto-accept mode indicator',

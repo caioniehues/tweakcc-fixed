@@ -111,9 +111,7 @@ export function ThemesView({ onBack }: ThemesViewProps) {
     return (
       <Box>
         <Box flexDirection="column" width="100%">
-          <Header>
-            Themes
-          </Header>
+          <Header>Themes</Header>
           <Box marginBottom={1} flexDirection="column">
             <Text dimColor>n to create a new theme</Text>
             <Text dimColor>esc to go back</Text>
@@ -127,9 +125,7 @@ export function ThemesView({ onBack }: ThemesViewProps) {
   return (
     <Box>
       <Box flexDirection="column" width="50%">
-        <Header>
-          Themes
-        </Header>
+        <Header>Themes</Header>
         <Box marginBottom={1} flexDirection="column">
           <Text dimColor>n to create a new theme</Text>
           <Text dimColor>d to delete a theme</Text>

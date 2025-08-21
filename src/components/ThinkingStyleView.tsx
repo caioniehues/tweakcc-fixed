@@ -293,9 +293,7 @@ export function ThinkingStyleView({ onBack }: ThinkingStyleViewProps) {
     <Box>
       <Box flexDirection="column" width={`${100 - previewWidth}%`}>
         <Box marginBottom={1} flexDirection="column">
-          <Header>
-            Thinking style
-          </Header>
+          <Header>Thinking style</Header>
           <Box flexDirection="column">
             <Text dimColor>
               enter to{' '}
