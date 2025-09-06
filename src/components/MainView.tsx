@@ -32,6 +32,10 @@ const baseMenuItems: SelectItem[] = [
     name: MainMenuItem.THINKING_STYLE,
     desc: 'Choose custom spinners',
   },
+  {
+    name: MainMenuItem.USER_MESSAGE_DISPLAY,
+    desc: 'Customize how user messages are displayed',
+  },
 ];
 
 // prettier-ignore
