@@ -34,6 +34,7 @@ import { writeUserMessageDisplay } from './userMessageDisplay.js';
 import { writeVerboseProperty } from './verboseProperty.js';
 import { writeModelCustomizations } from './modelSelector.js';
 import { writeIgnoreMaxSubscription } from './ignoreMaxSubscription.js';
+import { writeThinkingVisibility } from './thinkingVisibility.js';
 import { writePatchesAppliedIndication } from './patchesAppliedIndication.js';
 import { applySystemPrompts } from './systemPrompts.js';
 import { writeFixLspSupport } from './fixLspSupport.js';
@@ -374,6 +375,9 @@ export const applyCustomization = async (
   // Disable Max subscription gating for cost tool (always enabled)
   if ((result = writeIgnoreMaxSubscription(content))) content = result;
 
+  // Apply thinking visibility patch (always enabled)
+  if ((result = writeThinkingVisibility(content))) content = result;
+
   // Apply system prompt customizations
   const systemPromptsResult = await applySystemPrompts(
     content,
@@ -381,7 +385,8 @@ export const applyCustomization = async (
   );
   content = systemPromptsResult.newContent;
   items.push(...systemPromptsResult.items);
-  // Apply patches applied indication (respects misc settings)
+
+  // Apply patches applied indication
   const showTweakccVersion = config.settings.misc?.showTweakccVersion ?? true;
   const showPatchesApplied = config.settings.misc?.showPatchesApplied ?? true;
   if (
