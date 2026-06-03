@@ -6,7 +6,7 @@ import { LocationResult, showDiff } from './index';
 
 function getThemesLocation(oldFile: string): {
   switchStatement: LocationResult;
-  objArr: LocationResult | null;
+  objArr: LocationResult;
   obj: LocationResult | null;
 } | null {
   // === Switch Statement ===
@@ -71,19 +71,53 @@ function getThemesLocation(oldFile: string): {
   }
 
   // === Theme Options Array ===
-  // Both old and new: [{label:"...",value:"..."}, ...] or [{"label":"...",...]
-  const objArrPat =
-    /\[(?:\.\.\.\[\],)?(?:\{"?label"?:"(?:Dark|Light|Auto|Monochrome)[^"]*","?value"?:"[^"]+"\},?)+\]/;
-  const objArrMatch = oldFile.match(objArrPat);
+  // Old form (CC ≤2.1.138): inline array literal
+  //   [{label:"Dark mode",value:"dark"},{label:"Light mode",value:"light"},...]
+  // New form (CC ≥2.1.140): each option assigned to its own var (React-compiler
+  // memoization), then collected via `[i,e,DH,YH,s,o,HH,...m.map(VA5),...mH]`.
+  // We must preserve the trailing `,...spread` chunks (custom themes, "New custom
+  // theme..." sentinel) so users can still add custom themes through CC's UI.
+  let objArrStart = -1;
+  let objArrEnd = -1;
+  let objArrTrailingSpreads = '';
 
-  // CC >=2.1.138 builds the picker array from per-theme React-memoized vars
-  // instead of one literal array, so this match is best-effort. Color rewrites
-  // (the switch statement) still work without it; the picker UI just keeps
-  // its built-in labels.
-  if (!objArrMatch || objArrMatch.index == undefined) {
-    debug(
-      'patch: themes: objArrMatch not found — colors will still apply, picker labels unchanged'
-    );
+  const oldObjArrPat =
+    /\[(?:\.\.\.\[\],)?(?:\{"?label"?:"(?:Dark|Light|Auto|Monochrome)[^"]*","?value"?:"[^"]+"\},?)+\]/;
+  const oldObjArrMatch = oldFile.match(oldObjArrPat);
+
+  // Old form (CC ≤2.1.138): one inline array literal.
+  // New form (CC ≥2.1.140): each theme option assigned to its own React-memoized
+  // var, then collected into an array with trailing `...spread` chunks (custom
+  // themes). Capture those spreads so the writer can preserve user custom themes.
+  if (oldObjArrMatch && oldObjArrMatch.index !== undefined) {
+    objArrStart = oldObjArrMatch.index;
+    objArrEnd = oldObjArrMatch.index + oldObjArrMatch[0].length;
+  } else {
+    // Find each `var={label:"Theme Name",value:"theme-id"}` assignment.
+    const themeVarAssignPat =
+      /([$\w]+)=\{label:"(?:Auto|Dark|Light|Monochrome)[^"]*",value:"[^"]+"\}/g;
+    const assigns = [...oldFile.matchAll(themeVarAssignPat)];
+    if (assigns.length < 2) {
+      console.error('patch: themes: failed to find objArrMatch');
+      return null;
+    }
+    const themeVars = assigns.map(m => m[1]);
+
+    // Find an array whose prefix is exactly these vars (in order), optionally
+    // followed by `...spread` chunks. The vars must not be preceded by `,` so
+    // we don't accidentally land in the middle of a longer array.
+    const escVars = themeVars.map(v => v.replace(/\$/g, '\\$')).join(',');
+    const arrayPat = new RegExp(`\\[${escVars}((?:,\\.\\.\\.[^\\]]+)*)\\]`);
+    const arrayMatch = oldFile.match(arrayPat);
+    if (!arrayMatch || arrayMatch.index === undefined) {
+      console.error(
+        'patch: themes: failed to find objArrMatch (new var-collected form)'
+      );
+      return null;
+    }
+    objArrStart = arrayMatch.index;
+    objArrEnd = arrayMatch.index + arrayMatch[0].length;
+    objArrTrailingSpreads = arrayMatch[1];
   }
 
   // === Theme Name Mapping Object ===
@@ -104,13 +138,13 @@ function getThemesLocation(oldFile: string): {
       endIndex: switchEnd,
       identifiers: [switchIdent],
     },
-    objArr:
-      objArrMatch && objArrMatch.index !== undefined
-        ? {
-            startIndex: objArrMatch.index,
-            endIndex: objArrMatch.index + objArrMatch[0].length,
-          }
-        : null,
+    objArr: {
+      startIndex: objArrStart,
+      endIndex: objArrEnd,
+      // Stash the trailing `,...spread,...spread` so the writer can preserve it
+      // (only present in the new var-collected form; empty string for old form).
+      identifiers: [objArrTrailingSpreads],
+    },
     obj:
       objMatch && objMatch.index !== undefined
         ? {
@@ -161,24 +195,26 @@ export const writeThemes = (
     oldFile = newFile;
   }
 
-  // Update theme options array (objArr) — skip if not present (newer CC builds)
-  if (locations.objArr) {
-    const objArr = JSON.stringify(
-      themes.map(theme => ({ label: theme.name, value: theme.id }))
-    );
-    newFile =
-      newFile.slice(0, locations.objArr.startIndex) +
-      objArr +
-      newFile.slice(locations.objArr.endIndex);
-    showDiff(
-      oldFile,
-      newFile,
-      objArr,
-      locations.objArr.startIndex,
-      locations.objArr.endIndex
-    );
-    oldFile = newFile;
-  }
+  // Update theme options array (objArr).
+  // For 2.1.140+ var-collected form, preserve trailing `,...m.map(...),...mH`
+  // spreads so users can still add custom themes through CC's UI.
+  const trailingSpreads = locations.objArr.identifiers?.[0] ?? '';
+  const objArrInner = themes
+    .map(theme => JSON.stringify({ label: theme.name, value: theme.id }))
+    .join(',');
+  const objArr = `[${objArrInner}${trailingSpreads}]`;
+  newFile =
+    newFile.slice(0, locations.objArr.startIndex) +
+    objArr +
+    newFile.slice(locations.objArr.endIndex);
+  showDiff(
+    oldFile,
+    newFile,
+    objArr,
+    locations.objArr.startIndex,
+    locations.objArr.endIndex
+  );
+  oldFile = newFile;
 
   // Update switch statement
   let switchStatement = `switch(${locations.switchStatement.identifiers?.[0]}){\n`;

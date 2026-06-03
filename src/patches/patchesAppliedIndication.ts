@@ -335,18 +335,22 @@ const findPatchesListLocation = (
   }
   const matchResult = { index: versionDisplayMatch.index };
 
-  // 2. Go back 3000 chars from the match start (CC ≥2.1.126 has more body
-  // before the version display than older versions).
-  const lookbackStart = Math.max(0, matchResult.index - 3000);
+  // 2. Go back 5000 chars from the match start. CC ≥2.1.140 emits a very long
+  // React-compiled header function (Cf4) where the version display lives ~1900+ bytes
+  // after the function head. PATCH 2's own insertions push that further. 5000 leaves
+  // a comfortable margin for future CC builds while still being scoped to "this region".
+  const lookbackStart = Math.max(0, matchResult.index - 5000);
   const lookbackSubstring = fileContents.slice(
     lookbackStart,
     matchResult.index
   );
 
-  // 3. Take the last `function NAME(` preceded by any non-identifier char.
-  // CC ≥2.1.126 wraps with React Compiler so the prefix is `;function` rather
-  // than `}function`; allow either.
-  const functionPattern = /[^$\w]function ([$\w]+)\(/g;
+  // 3. Take the last function-declaration boundary. CC ≤2.1.138 emitted these as
+  // `}function NAME(` (close-brace immediately followed by `function`). CC 2.1.140
+  // emits them as `});function NAME(` (var/IIFE block close + semicolon, then
+  // `function`). Match on `}` or `;` boundary with optional whitespace before
+  // `function` (React Compiler wraps the header, so the prefix is `;function`).
+  const functionPattern = /[};]\s*function ([$\w]+)\(/g;
   const functionMatches = Array.from(
     lookbackSubstring.matchAll(functionPattern)
   );
@@ -502,46 +506,47 @@ export const writePatchesAppliedIndication = (
     );
     const locs = findTweakccVersionLocations(content);
     if (!locs) {
-      console.error('patch: patchesAppliedIndication: patch 2 failed');
-      return null;
+      console.error(
+        'patch: patchesAppliedIndication: patch 2 skipped (header version pattern changed)'
+      );
+    } else {
+      // Step 1: Insert variable declaration after the "Claude Code" bold element
+      const varName = '_tw';
+      const varDecl = `let ${varName}=${locs.reactVar}.createElement(${locs.textComponent},null,${chalkVar}.hex("#FF8400").bold("+ tweakcc v${tweakccVersion}"));`;
+
+      const oldContent2a = content;
+      content =
+        content.slice(0, locs.varInsertIndex) +
+        varDecl +
+        content.slice(locs.varInsertIndex);
+
+      showDiff(
+        oldContent2a,
+        content,
+        varDecl,
+        locs.varInsertIndex,
+        locs.varInsertIndex
+      );
+
+      // Step 2: Insert variable reference as sibling in the parent createElement
+      // (adjust refInsertIndex for the inserted varDecl)
+      const adjustedRefIndex = locs.refInsertIndex + varDecl.length;
+      const refCode = `," ",${varName}`;
+
+      const oldContent2b = content;
+      content =
+        content.slice(0, adjustedRefIndex) +
+        refCode +
+        content.slice(adjustedRefIndex);
+
+      showDiff(
+        oldContent2b,
+        content,
+        refCode,
+        adjustedRefIndex,
+        adjustedRefIndex
+      );
     }
-
-    // Step 1: Insert variable declaration after the "Claude Code" bold element
-    const varName = '_tw';
-    const varDecl = `let ${varName}=${locs.reactVar}.createElement(${locs.textComponent},null,${chalkVar}.hex("#FF8400").bold("+ tweakcc v${tweakccVersion}"));`;
-
-    const oldContent2a = content;
-    content =
-      content.slice(0, locs.varInsertIndex) +
-      varDecl +
-      content.slice(locs.varInsertIndex);
-
-    showDiff(
-      oldContent2a,
-      content,
-      varDecl,
-      locs.varInsertIndex,
-      locs.varInsertIndex
-    );
-
-    // Step 2: Insert variable reference as sibling in the parent createElement
-    // (adjust refInsertIndex for the inserted varDecl)
-    const adjustedRefIndex = locs.refInsertIndex + varDecl.length;
-    const refCode = `," ",${varName}`;
-
-    const oldContent2b = content;
-    content =
-      content.slice(0, adjustedRefIndex) +
-      refCode +
-      content.slice(adjustedRefIndex);
-
-    showDiff(
-      oldContent2b,
-      content,
-      refCode,
-      adjustedRefIndex,
-      adjustedRefIndex
-    );
   }
 
   // PATCH 3: Add patches applied list (if enabled)

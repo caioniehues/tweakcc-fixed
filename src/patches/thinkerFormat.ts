@@ -27,17 +27,15 @@ const getThinkerFormatLocation = (oldFile: string): LocationResult | null => {
     oldFile.match(approxAreaPatternNew) ||
     oldFile.match(approxAreaPatternLatest);
 
-  if (!approxAreaMatch || approxAreaMatch.index == undefined) {
-    console.error('patch: thinker format: failed to find approxAreaMatch');
-    return null;
-  }
+  const searchStart = approxAreaMatch?.index;
 
   // Search forward from the anchor far enough to reach the format declaration
-  // (~14KB after the destructure on CC 2.1.126).
-  const searchSection = oldFile.slice(
-    approxAreaMatch.index,
-    approxAreaMatch.index + 20000
-  );
+  // (~14KB after the destructure on CC 2.1.126). Guard against a missing anchor
+  // so a no-match returns null cleanly instead of dereferencing undefined.
+  const searchSection =
+    searchStart === undefined
+      ? ''
+      : oldFile.slice(searchStart, searchStart + 20000);
 
   // New nullish format: N=(Y??C?.activeForm??L)+"…"
   const formatPatternOld = /,([$\w]+)(=\(([^;]{1,200}?)\)\+"(?:…|\\u2026)")/;
@@ -46,12 +44,9 @@ const getThinkerFormatLocation = (oldFile: string): LocationResult | null => {
   if (formatMatchOld && formatMatchOld.index != undefined) {
     return {
       startIndex:
-        approxAreaMatch.index +
-        formatMatchOld.index +
-        formatMatchOld[1].length +
-        1, // + 1 for the comma
+        searchStart! + formatMatchOld.index + formatMatchOld[1].length + 1, // + 1 for the comma
       endIndex:
-        approxAreaMatch.index +
+        searchStart! +
         formatMatchOld.index +
         formatMatchOld[1].length +
         formatMatchOld[2].length +
@@ -68,12 +63,9 @@ const getThinkerFormatLocation = (oldFile: string): LocationResult | null => {
   if (formatMatchNew && formatMatchNew.index != undefined) {
     return {
       startIndex:
-        approxAreaMatch.index +
-        formatMatchNew.index +
-        formatMatchNew[1].length +
-        1, // + 1 for the comma
+        searchStart! + formatMatchNew.index + formatMatchNew[1].length + 1, // + 1 for the comma
       endIndex:
-        approxAreaMatch.index +
+        searchStart! +
         formatMatchNew.index +
         formatMatchNew[1].length +
         formatMatchNew[2].length +
@@ -90,17 +82,47 @@ const getThinkerFormatLocation = (oldFile: string): LocationResult | null => {
   if (formatMatchTpl && formatMatchTpl.index != undefined) {
     return {
       startIndex:
-        approxAreaMatch.index +
-        formatMatchTpl.index +
-        formatMatchTpl[1].length +
-        1,
+        searchStart! + formatMatchTpl.index + formatMatchTpl[1].length + 1,
       endIndex:
-        approxAreaMatch.index +
+        searchStart! +
         formatMatchTpl.index +
         formatMatchTpl[1].length +
         formatMatchTpl[2].length +
         1,
       identifiers: [formatMatchTpl[3]],
+    };
+  }
+
+  // Whole-file fallback (CC 2.1.146+): when the anchored search misses, scan for
+  // the nullish spinner-verb format anywhere, keeping only a match whose
+  // surrounding context proves it's the spinner format (not a lookalike).
+  const formatPatternNewGlobal = new RegExp(formatPatternNew.source, 'g');
+  const formatMatches = [...oldFile.matchAll(formatPatternNewGlobal)].filter(
+    match => {
+      if (match.index == undefined) {
+        return false;
+      }
+      const context = oldFile.slice(
+        Math.max(0, match.index - 2500),
+        match.index + 1000
+      );
+      return (
+        context.includes('overrideMessage:') &&
+        context.includes('.activeForm') &&
+        context.includes('.isIdle') &&
+        context.includes('.spinnerVerb') &&
+        context.includes('spinnerTip')
+      );
+    }
+  );
+
+  if (formatMatches.length === 1) {
+    const formatMatch = formatMatches[0];
+    return {
+      startIndex: formatMatch.index! + formatMatch[1].length + 1, // + 1 for the comma
+      endIndex:
+        formatMatch.index! + formatMatch[1].length + formatMatch[2].length + 1, // + 1 for the comma
+      identifiers: [formatMatch[3]],
     };
   }
 

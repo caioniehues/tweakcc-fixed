@@ -13,7 +13,7 @@ const getVerbosePropertyEdit = (oldFile: string): VerboseEdit | null => {
   // Here, `verbose:X` is an object-literal value and can be safely replaced
   // with the literal `verbose:true`.
   const createElementPattern =
-    /createElement\([$\w]+,\{[^}]+spinnerTip[^}]+overrideMessage[^}]+\}/;
+    /(?:[$\w]+\.)?createElement\([$\w]+,\{(?=[^}]*responseLengthRef:)(?=[^}]*spinnerSuffix:)(?=[^}]*thinkingStatus:)(?=[^}]*isCompacting:)[^}]*verbose:[^,}]+[^}]*\}/;
   const objLitMatch = oldFile.match(createElementPattern);
   if (objLitMatch && objLitMatch.index !== undefined) {
     const verboseMatch = objLitMatch[0].match(/verbose:[^,}]+/);

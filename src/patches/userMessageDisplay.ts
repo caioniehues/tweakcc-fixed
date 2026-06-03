@@ -190,10 +190,6 @@ export const writeUserMessageDisplay = (
   }
 
   const boxComponent = findBoxComponent(oldFile);
-  if (!boxComponent) {
-    console.error('patch: userMessageDisplay: failed to find Box component');
-    return null;
-  }
 
   const chalkVar = findChalkVar(oldFile);
   if (!chalkVar) {
@@ -222,16 +218,33 @@ export const writeUserMessageDisplay = (
 
   // Try the modern (attribute-preserving) pattern first — the legacy
   // pattern's `{text:VAR}` alternative ALSO matches CC 2.1.79+ shapes, so if
-  // we checked legacy first the modern path would never run. Fall back to
-  // legacy only when the modern pattern doesn't apply.
+  // we checked legacy first the modern path would never run.
   const modernMatch = oldFile.match(modernPattern);
-  const legacyMatch = modernMatch ? null : oldFile.match(legacyPattern);
 
-  if (!modernMatch && (!legacyMatch || legacyMatch.index === undefined)) {
+  // CC ≥2.1.138: the child display is memoized (`VAR=createElement(child,{text,
+  // useBriefLayout,timestamp})`) before the parent Box call. Rewrite only that
+  // child assignment so React-compiler cache bookkeeping stays intact. Preferred
+  // over the broad legacy tree-replacement (whose `{text:VAR}` alternative also
+  // matches this shape) when present.
+  const memoizedChildPattern =
+    /(No content found in user prompt message.{0,1200}?)([$\w]+)=([$\w]+(?:\.default)?\.createElement)\([$\w]+,\{text:([$\w]+),useBriefLayout:[$\w]+,timestamp:[$\w]+\}\)/;
+  const memoizedChildMatch = modernMatch
+    ? null
+    : oldFile.match(memoizedChildPattern);
+
+  // Fall back to legacy only when neither modern nor memoized shapes apply.
+  const legacyMatch =
+    modernMatch || memoizedChildMatch ? null : oldFile.match(legacyPattern);
+
+  if (
+    !modernMatch &&
+    (!memoizedChildMatch || memoizedChildMatch.index === undefined) &&
+    (!legacyMatch || legacyMatch.index === undefined)
+  ) {
     console.error(
       'patch: userMessageDisplay: failed to find user message display pattern'
     );
-    return null;
+    return oldFile;
   }
 
   // ────────────────────────────────────────────────────────────────────────
@@ -424,15 +437,23 @@ export const writeUserMessageDisplay = (
   }
 
   // ────────────────────────────────────────────────────────────────────────
-  // Legacy path (CC ≤2.1.21): preserve the prior behavior — replace the
-  // whole matched tree with our own Box+Text+chalk. These CC versions
-  // pass the raw text directly to an inner Text whose parent flex context
-  // already works correctly, so the wrap-line bg bug that motivated the
-  // modern-path rewrite doesn't apply here.
+  // Non-modern path: handles the memoized-child shape (CC ≥2.1.138, where the
+  // display is `VAR=createElement(child,{text,…})`) and the legacy tree
+  // (CC ≤2.1.21). Both replace the matched display with our own Box+Text+chalk.
+  // The memoized branch re-emits the `VAR=` assignment (see replacementPrefix
+  // below) so React-compiler cache bookkeeping stays intact.
   // ────────────────────────────────────────────────────────────────────────
-  const match = legacyMatch!;
-  const createElementFn = match[4];
-  const messageVar = match[6] ?? match[7];
+  if (!boxComponent) {
+    console.error('patch: userMessageDisplay: failed to find Box component');
+    return null;
+  }
+  const match = (memoizedChildMatch ?? legacyMatch)!;
+  const createElementFn = memoizedChildMatch
+    ? memoizedChildMatch[3]
+    : legacyMatch![4];
+  const messageVar = memoizedChildMatch
+    ? memoizedChildMatch[4]
+    : (legacyMatch![6] ?? legacyMatch![7]);
 
   const boxAttrs: string[] = [];
   const isCustomBorder = config.borderStyle.startsWith('topBottom');
@@ -515,9 +536,15 @@ export const writeUserMessageDisplay = (
   const textAttrsObjStr =
     textAttrs.length > 0 ? `{${textAttrs.join(',')}}` : 'null';
 
+  // For the memoized-child shape, re-emit the `VAR=` assignment so the React-
+  // compiler cache slot still receives our replacement tree; empty otherwise.
+  const replacementPrefix = memoizedChildMatch
+    ? `${memoizedChildMatch[2]}=`
+    : '';
+
   const replacement =
     match[1] +
-    `${createElementFn}(${boxComponent},${boxAttrsObjStr},${createElementFn}(${textComponent},${textAttrsObjStr},${chalkFormattedString}))`;
+    `${replacementPrefix}${createElementFn}(${boxComponent},${boxAttrsObjStr},${createElementFn}(${textComponent},${textAttrsObjStr},${chalkFormattedString}))`;
 
   const startIndex = match.index!;
   const endIndex = startIndex + match[0].length;

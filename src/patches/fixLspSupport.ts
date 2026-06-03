@@ -31,7 +31,7 @@ const getOpenDocumentLocation = (oldFile: string): LocationResult | null => {
   const varName = sendRequestMatch[1];
 
   // Step 5: In the previous 1000-2000 characters, search for `async function {varName}\([$\w]+,`
-  const searchStart = Math.max(0, ensureMatch.index - 2000);
+  const searchStart = Math.max(0, ensureMatch.index - 4000);
   const searchChunk = oldFile.slice(searchStart, ensureMatch.index);
   const functionPattern = new RegExp(
     `async function ${escapeIdent(varName)}\\(([$\\w]+),`,
@@ -98,7 +98,9 @@ const getOpenDocumentLocation = (oldFile: string): LocationResult | null => {
 export const writeFixLspSupport = (oldFile: string): string | null => {
   // Patch 1: Remove unimplemented-field validation throws.
   // Anthropic removes these incrementally as features land natively;
-  // globalReplace is silent on no-match so any subset still works.
+  // globalReplace is silent on no-match so any subset still works. (Don't
+  // early-return on native file-sync here: as of CC 2.1.160 two of these
+  // "is not yet implemented" throws are still present and worth removing.)
   const validationPattern1 =
     /if\([$\w]+\.restartOnCrash!==void 0\)throw Error\(`LSP server '\$\{[$\w]+\}': restartOnCrash is not yet implemented\. Remove this field from the configuration\.`\);/g;
   const validationPattern2 =

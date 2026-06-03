@@ -1,6 +1,8 @@
 import * as fs from 'node:fs/promises';
 import * as fsSync from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 import {
   CONFIG_DIR,
@@ -590,6 +592,27 @@ const applyPatchImplementations = (
   return { content, results };
 };
 
+const assertNativeBinaryStarts = (binaryPath: string) => {
+  const result = spawnSync(binaryPath, ['--version'], {
+    encoding: 'utf8',
+    timeout: 15000,
+  });
+  const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
+
+  if (
+    result.error ||
+    result.status !== 0 ||
+    /Expected CommonJS module|Bun v|TypeError/.test(output)
+  ) {
+    const error = new Error(
+      `Patched native binary failed startup sanity check (${binaryPath}).\n` +
+        output.trim()
+    );
+    error.stack = error.message;
+    throw error;
+  }
+};
+
 // =============================================================================
 // Main Apply Function
 // =============================================================================
@@ -712,10 +735,13 @@ export const applyCustomization = async (
     });
   }
 
+  // Apply system prompts unconditionally, including native installs — this fork's
+  // lobotomization patches the prompts inside the Bun bundle (upstream skips native
+  // here; we don't, because native prompt overrides are the whole point).
   const systemPromptsResult = await applySystemPrompts(
     content,
     ccInstInfo.version,
-    undefined,
+    undefined, // escapeNonAscii - auto-detect
     patchFilter
   );
   content = systemPromptsResult.newContent;
@@ -749,6 +775,7 @@ export const applyCustomization = async (
     // Always Applied
     'verbose-property': {
       fn: c => writeVerboseProperty(c),
+      condition: !ccInstInfo.nativeInstallationPath,
     },
     'read-default-lines': {
       fn: c => writeReadDefaultLines(c),
@@ -759,6 +786,8 @@ export const applyCustomization = async (
     },
     opusplan1m: {
       fn: c => writeOpusplan1m(c),
+      condition:
+        modelCustomizationsEnabled && !ccInstInfo.nativeInstallationPath,
     },
     'thinking-block-styling': {
       fn: c => writeThinkingBlockStyling(c),
@@ -815,11 +844,17 @@ export const applyCustomization = async (
     },
     'thinking-verbs': {
       fn: c => writeThinkingVerbs(c, config.settings.thinkingVerbs!.verbs),
-      condition: !!config.settings.thinkingVerbs,
+      condition:
+        !!config.settings.thinkingVerbs &&
+        JSON.stringify(config.settings.thinkingVerbs.verbs) !==
+          JSON.stringify(DEFAULT_SETTINGS.thinkingVerbs.verbs),
     },
     'thinker-format': {
       fn: c => writeThinkerFormat(c, config.settings.thinkingVerbs!.format),
-      condition: !!config.settings.thinkingVerbs,
+      condition:
+        !!config.settings.thinkingVerbs &&
+        config.settings.thinkingVerbs.format !==
+          DEFAULT_SETTINGS.thinkingVerbs.format,
     },
     'thinker-symbol-chars': {
       fn: c => writeThinkerSymbolChars(c, config.settings.thinkingStyle.phases),
@@ -864,12 +899,16 @@ export const applyCustomization = async (
       fn: c => writeInputBoxBorder(c, config.settings.inputBox!.removeBorder),
       condition: !!(
         config.settings.inputBox &&
-        typeof config.settings.inputBox.removeBorder === 'boolean'
+        config.settings.inputBox.removeBorder !==
+          DEFAULT_SETTINGS.inputBox.removeBorder
       ),
     },
     'subagent-models': {
       fn: c => writeSubagentModels(c, config.settings.subagentModels!),
-      condition: !!config.settings.subagentModels,
+      condition:
+        !!config.settings.subagentModels &&
+        JSON.stringify(config.settings.subagentModels) !==
+          JSON.stringify(DEFAULT_SETTINGS.subagentModels),
     },
     'thinking-visibility': {
       fn: c => writeThinkingVisibility(c),
@@ -906,10 +945,7 @@ export const applyCustomization = async (
     },
     'remember-skill': {
       fn: c => writeRememberSkill(c),
-      condition:
-        !!config.settings.misc?.enableRememberSkill &&
-        !!ccInstInfo.version &&
-        compareVersions(ccInstInfo.version, '2.1.42') < 0,
+      condition: !!config.settings.misc?.enableRememberSkill,
     },
     'agents-md': {
       fn: c => writeAgentsMd(c, config.settings.claudeMdAltNames!),
@@ -955,10 +991,7 @@ export const applyCustomization = async (
     },
     'worktree-mode': {
       fn: c => writeWorktreeMode(c),
-      condition:
-        !!config.settings.misc?.enableWorktreeMode &&
-        !!ccInstInfo.version &&
-        compareVersions(ccInstInfo.version, '2.1.51') < 0,
+      condition: !!config.settings.misc?.enableWorktreeMode,
     },
     'session-memory': {
       fn: c => writeSessionMemory(c),
@@ -989,7 +1022,12 @@ export const applyCustomization = async (
     },
     'user-message-display': {
       fn: c => writeUserMessageDisplay(c, config.settings.userMessageDisplay!),
-      condition: !!config.settings.userMessageDisplay,
+      condition: !!(
+        config.settings.userMessageDisplay &&
+        JSON.stringify(config.settings.userMessageDisplay) !==
+          JSON.stringify(DEFAULT_SETTINGS.userMessageDisplay) &&
+        !ccInstInfo.nativeInstallationPath
+      ),
     },
     'input-pattern-highlighters': {
       fn: c =>
@@ -1006,10 +1044,7 @@ export const applyCustomization = async (
       fn: c => writeConversationTitle(c),
       condition:
         (config.settings.misc?.enableConversationTitle ?? true) &&
-        !!(
-          ccInstInfo.version &&
-          compareVersions(ccInstInfo.version, '2.0.64') < 0
-        ),
+        !ccInstInfo.nativeInstallationPath,
     },
     'voice-mode': {
       fn: c =>
@@ -1042,6 +1077,16 @@ export const applyCustomization = async (
   content = patchedContent;
   allResults.push(...patchResults);
 
+  const failedBinaryPatches = patchResults.filter(r => r.failed);
+  if (ccInstInfo.nativeInstallationPath && failedBinaryPatches.length > 0) {
+    const error = new Error(
+      'Refusing to repack native binary because one or more binary patches failed: ' +
+        failedBinaryPatches.map(r => r.id).join(', ')
+    );
+    error.stack = error.message;
+    throw error;
+  }
+
   // ==========================================================================
   // Write the modified content back
   // ==========================================================================
@@ -1057,12 +1102,29 @@ export const applyCustomization = async (
     debug(`Saved patched JS from native to: ${patchedPath}`);
 
     const modifiedBuffer = Buffer.from(content, 'utf8');
-    await repackNativeInstallation(
-      ccInstInfo.nativeInstallationPath,
-      modifiedBuffer,
-      ccInstInfo.nativeInstallationPath,
-      clearBytecode
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tweakcc-native-'));
+    const tempBinaryPath = path.join(
+      tempDir,
+      path.basename(ccInstInfo.nativeInstallationPath)
     );
+
+    try {
+      await fs.copyFile(ccInstInfo.nativeInstallationPath, tempBinaryPath);
+      await fs.chmod(
+        tempBinaryPath,
+        fsSync.statSync(ccInstInfo.nativeInstallationPath).mode
+      );
+      await repackNativeInstallation(
+        tempBinaryPath,
+        modifiedBuffer,
+        tempBinaryPath,
+        clearBytecode
+      );
+      assertNativeBinaryStarts(tempBinaryPath);
+      await fs.copyFile(tempBinaryPath, ccInstInfo.nativeInstallationPath);
+    } finally {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    }
   } else {
     // For NPM installations: replace the cli.js file
     if (!ccInstInfo.cliPath) {
