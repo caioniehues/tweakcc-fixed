@@ -45,3 +45,6 @@ debug.log
 *.temp
 
 *.tsbuildinfo
+
+# Personal Claude Code config + skills — never publish to the public fork
+.claude/
