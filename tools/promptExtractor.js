@@ -31,6 +31,33 @@ const WORKFLOW_SCRIPT_IDENTIFIER_MAP = {
 // semantic names for the prompt's interpolated identifiers — required when
 // override .md files reference those names (`${ATTACHMENT_OBJECT.filename}`).
 const NEW_PROMPT_ASSIGNMENTS = [
+  // 2.1.168
+  {
+    // croncreate's carried-over identifierMap was partial: 3 of 7 slots named,
+    // frozen at 2.1.144 before Anthropic grew the prompt to 7 interpolations
+    // (durability section, monitor-enabled gate, MONITOR_TOOL_NAME, durable
+    // runtime note). The 4 unnamed slots shifted the carried labels, so the
+    // override's ${CANCEL_TIMEFRAME_DAYS} bound to the IS_MONITOR_TOOL_ENABLED
+    // function instead of the day-count value and rendered function source into
+    // the tool description (boots, so four-zeros + smoke missed it). Overlay the
+    // full 7-slot map — matches Piebald's canonical naming; the identifiers
+    // array is byte-identical, so the names drop straight onto our slots.
+    matcher: t =>
+      t.includes('Schedule a prompt to be enqueued at a future time'),
+    name: 'Tool Description: CronCreate',
+    id: 'tool-description-croncreate',
+    description:
+      'Describes the CronCreate tool for enqueuing one-shot or recurring cron-based jobs with jitter and off-minute scheduling guidance',
+    identifierMap: {
+      '0': 'CRON_DURABILITY_SECTION',
+      '1': 'IS_MONITOR_TOOL_ENABLED_FN',
+      '2': 'CRON_CREATE_TOOL_NAME',
+      '3': 'MONITOR_TOOL_NAME',
+      '4': 'CRON_DURABLE_RUNTIME_NOTE',
+      '5': 'CANCEL_TIMEFRAME_DAYS',
+      '6': 'CRON_DELETE_TOOL_NAME',
+    },
+  },
   // 2.1.167
   {
     // New in 2.1.167: cross-session peer-message authority disclaimer (d_q).

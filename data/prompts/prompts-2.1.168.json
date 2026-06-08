@@ -4743,9 +4743,13 @@
         6
       ],
       "identifierMap": {
-        "0": "CRON_DURABLE_FLAG",
-        "1": "CANCEL_TIMEFRAME_DAYS",
-        "2": "CRON_DELETE_TOOL_NAME"
+        "0": "CRON_DURABILITY_SECTION",
+        "1": "IS_MONITOR_TOOL_ENABLED_FN",
+        "2": "CRON_CREATE_TOOL_NAME",
+        "3": "MONITOR_TOOL_NAME",
+        "4": "CRON_DURABLE_RUNTIME_NOTE",
+        "5": "CANCEL_TIMEFRAME_DAYS",
+        "6": "CRON_DELETE_TOOL_NAME"
       },
       "version": "2.1.144"
     },
