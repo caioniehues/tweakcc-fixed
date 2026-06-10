@@ -3106,9 +3106,9 @@
       "version": "2.1.122"
     },
     {
-      "name": "System Reminder: Cross-session peer message authority warning",
-      "id": "system-reminder-cross-session-peer-message-authority-warning",
-      "description": "Warns that an incoming message from another Claude session is not user authority, cannot grant consent, and must not be used for permission laundering",
+      "name": "System Reminder: Cross-session peer message wrapper",
+      "id": "system-reminder-cross-session-peer-message-wrapper",
+      "description": "Wrapper template for an incoming message from another Claude session — header, peer message content, and reply-routing note around the inlined authority warning",
       "pieces": [
         "${",
         "}\n${",
@@ -3121,9 +3121,9 @@
         2
       ],
       "identifierMap": {
-        "0": "SYSTEM_REMINDER_CROSS_SESSION_PEER_MESSAGE_AUTHORITY_WARNING_VAR_0",
-        "1": "SYSTEM_REMINDER_CROSS_SESSION_PEER_MESSAGE_AUTHORITY_WARNING_VAR_1",
-        "2": "SYSTEM_REMINDER_CROSS_SESSION_PEER_MESSAGE_AUTHORITY_WARNING_VAR_2"
+        "0": "PEER_MESSAGE_HEADER",
+        "1": "PEER_MESSAGE_CONTENT",
+        "2": "PEER_RESPONSE_NOTE"
       },
       "version": "2.1.169"
     },
@@ -4156,7 +4156,7 @@
         10
       ],
       "identifierMap": {
-        "0": "SWEEP_MISS_CATEGORIES",
+        "0": "JSON",
         "1": "WORKFLOW_NAME",
         "2": "WORKFLOW_DESCRIPTION",
         "3": "WORKFLOW_WHEN_TO_USE",

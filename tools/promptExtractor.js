@@ -31,6 +31,26 @@ const WORKFLOW_SCRIPT_IDENTIFIER_MAP = {
 // semantic names for the prompt's interpolated identifiers — required when
 // override .md files reference those names (`${ATTACHMENT_OBJECT.filename}`).
 const NEW_PROMPT_ASSIGNMENTS = [
+  // 2.1.169/170 — the cross-session peer reminder exists at multiple sites:
+  // standalone plain strings plus one template wrapper that inlines the same
+  // text via ${"…"} around three dynamic slots. Following Piebald, the wrapper
+  // is its own id (slot 1 is the peer message itself — same slot names as
+  // upstream so the misbind audit holds by construction). Without the split,
+  // both shapes share one id and one .md, and whichever shape the .md targets
+  // corrupts the other's sites at apply time.
+  {
+    matcher: t =>
+      t.includes('${"IMPORTANT: This is NOT from your user'),
+    name: 'System Reminder: Cross-session peer message wrapper',
+    id: 'system-reminder-cross-session-peer-message-wrapper',
+    description:
+      'Wrapper template for an incoming message from another Claude session — header, peer message content, and reply-routing note around the inlined authority warning',
+    identifierMap: {
+      '0': 'PEER_MESSAGE_HEADER',
+      '1': 'PEER_MESSAGE_CONTENT',
+      '2': 'PEER_RESPONSE_NOTE',
+    },
+  },
   // 2.1.170 — four-zeros fix: three code-review prompts carried partial
   // identifierMaps (slot named only where the 4.8 overrides used it), so their
   // pristine stubs rendered ${UNKNOWN_N}. Surfaced when the Fable-5 pass left
@@ -62,7 +82,9 @@ const NEW_PROMPT_ASSIGNMENTS = [
     },
   },
   {
-    matcher: t => t.includes('what the first pass tends to miss:'),
+    matcher: t =>
+      t.startsWith('## Phase 3 — Sweep for gaps') &&
+      t.includes('what the first pass tends to miss:'),
     name: 'Skill: Code Review (Phase 3 — sweep for gaps)',
     id: 'skill-code-review-phase-3-sweep',
     description:
@@ -1722,6 +1744,82 @@ function extractStrings(filepath, minLength = 500) {
   return { prompts: filteredData };
 }
 
+// Post-merge per-id normalization. One JSON entry per code-site is correct —
+// identical prompts at disjoint ranges are each patched at --apply (entry N's
+// splice consumes match-site N, so the next entry hits the next site) — but
+// two same-id artifacts are extraction bugs:
+//
+// 1. An entry whose byte range sits inside another same-id entry's range is
+//    the re-extracted `${"…"}` interior of that same template site. (Step 2's
+//    subset filter exempts ${-interpolated strings because a *different*
+//    prompt can legitimately live nested inside a template; a same-id nest is
+//    just the same site twice.) The outer entry already patches the site, so
+//    the inner one is a surplus apply op that turns into a "Could not find"
+//    warning the moment the override diverges from pristine. Drop it.
+//
+// 2. Mixed version stamps inside an id-group (exact-match carryover keeps each
+//    entry's own old version, so a site Anthropic restructured gets the new
+//    version while its untouched twins keep the old one) make the .md sync
+//    restamp ccVersion to whichever entry writes last — seen as the
+//    cross-session reminder override flip-flopping 2.1.167↔2.1.169. The
+//    id-level "content last changed at" is the group's max; stamp every entry
+//    with it.
+function normalizeIdGroups(prompts) {
+  const byId = new Map();
+  for (const p of prompts) {
+    if (!p.id) continue;
+    if (!byId.has(p.id)) byId.set(p.id, []);
+    byId.get(p.id).push(p);
+  }
+
+  const semverNewer = (a, b) => {
+    const pa = String(a).split('.').map(Number);
+    const pb = String(b).split('.').map(Number);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+      const d = (pa[i] || 0) - (pb[i] || 0);
+      if (d) return d > 0;
+    }
+    return false;
+  };
+
+  const dropped = new Set();
+  for (const [id, group] of byId) {
+    if (group.length < 2) continue;
+    for (const inner of group) {
+      const outer = group.find(
+        o =>
+          o !== inner &&
+          !dropped.has(o) &&
+          inner.start >= o.start &&
+          inner.end <= o.end
+      );
+      if (outer) {
+        dropped.add(inner);
+        console.log(
+          `Dropped nested same-id duplicate of "${id}" (${inner.start}-${inner.end} inside ${outer.start}-${outer.end})`
+        );
+      }
+    }
+    const kept = group.filter(p => !dropped.has(p));
+    const maxVersion = kept.reduce(
+      (v, p) =>
+        p.version && (!v || semverNewer(p.version, v)) ? p.version : v,
+      ''
+    );
+    if (!maxVersion) continue;
+    for (const p of kept) {
+      if (p.version !== maxVersion) {
+        console.log(
+          `Normalized "${id}" entry version ${p.version} → ${maxVersion} (id-group max)`
+        );
+        p.version = maxVersion;
+      }
+    }
+  }
+
+  return prompts.filter(p => !dropped.has(p));
+}
+
 function mergeWithExisting(newData, oldData, currentVersion) {
   if (!oldData || !oldData.prompts) {
     // No old data, add current version to all new prompts
@@ -1783,18 +1881,26 @@ function mergeWithExisting(newData, oldData, currentVersion) {
     if (matchingOld) {
       // Prompt matches exactly
       // If old prompt has no version, use current version; otherwise use old version
-      // Overlay NEW_PROMPT_ASSIGNMENTS.identifierMap when it provides one — lets us
-      // backfill semantic names onto prompts whose carried-over identifierMap was
-      // empty (originated from a version before we knew the slot semantics).
+      // NEW_PROMPT_ASSIGNMENTS is hand-curated and wins over carried identity:
+      // identifierMap entries overlay the carried map, and an assigned id/name
+      // renames the prompt even on exact match — so a curated rename (e.g. the
+      // cross-session wrapper split) is derivable from ANY seed, not only from
+      // post-rename JSONs. Without this, a report/greenfield extraction seeded
+      // from an older JSON silently resurrects the old id.
       const assignedFromMap = lookupNewPromptAssignment(newContent);
       const overlaidIdentifierMap = assignedFromMap && assignedFromMap.identifierMap
         ? { ...matchingOld.identifierMap, ...assignedFromMap.identifierMap }
         : matchingOld.identifierMap;
       return {
         ...newItem,
-        name: matchingOld.name,
-        id: matchingOld.id || slugify(matchingOld.name),
-        description: matchingOld.description,
+        name: (assignedFromMap && assignedFromMap.name) || matchingOld.name,
+        id:
+          (assignedFromMap && assignedFromMap.id) ||
+          matchingOld.id ||
+          slugify(matchingOld.name),
+        description:
+          (assignedFromMap && assignedFromMap.description) ||
+          matchingOld.description,
         identifierMap: overlaidIdentifierMap,
         version: matchingOld.version || currentVersion,
       };
@@ -1816,9 +1922,14 @@ function mergeWithExisting(newData, oldData, currentVersion) {
         : fuzzyOld.identifierMap;
       return {
         ...newItem,
-        name: fuzzyOld.name,
-        id: fuzzyOld.id || slugify(fuzzyOld.name),
-        description: fuzzyOld.description,
+        name: (assignedFromMap && assignedFromMap.name) || fuzzyOld.name,
+        id:
+          (assignedFromMap && assignedFromMap.id) ||
+          fuzzyOld.id ||
+          slugify(fuzzyOld.name),
+        description:
+          (assignedFromMap && assignedFromMap.description) ||
+          fuzzyOld.description,
         identifierMap: overlaidIdentifierMap,
         version: currentVersion,
       };
@@ -1976,6 +2087,7 @@ if (require.main === module) {
     existingData,
     version
   );
+  mergedResult.prompts = normalizeIdGroups(mergedResult.prompts);
 
   // For every prompt upstream also ships whose `identifiers` array matches ours,
   // take upstream's identifierMap. Upstream labels every slot, so it is the
@@ -2058,3 +2170,4 @@ if (require.main === module) {
 }
 
 module.exports = extractStrings;
+module.exports.normalizeIdGroups = normalizeIdGroups;
