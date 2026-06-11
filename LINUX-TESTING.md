@@ -1,20 +1,24 @@
 # Linux Testing
 
-Run these on the VPS:
+Run these on the VPS (no checkout needed — the published npm package is the
+distribution path):
 
 ```bash
-cd ~/dev/tweakcc-fixed
-git pull
-npm install
-npm run build
-node dist/index.mjs apply
+npx -y tweakcc-fixed@latest --apply
 claude --version
-node dist/index.mjs revert
+npx -y tweakcc-fixed@latest --restore
 ```
 
 Success looks like:
 
-- `npm run build` exits cleanly and produces `dist/index.mjs` and `dist/lib/index.mjs`.
-- `node dist/index.mjs apply` detects the Linux ELF `claude.exe`, applies the saved theme/customization patch, and exits without codesigning.
+- `--apply` detects the Linux ELF `claude` binary, applies the saved
+  theme/customization patches, and exits without codesigning.
 - `claude --version` still prints the Claude Code version after patching.
-- `node dist/index.mjs revert` restores the backup cleanly.
+- `--restore` restores the backup cleanly.
+
+To test **unpublished** changes on Linux, build from a checkout instead:
+
+```bash
+cd ~/dev/tweakcc-fixed && git pull && pnpm install && pnpm build
+node dist/index.mjs --apply
+```

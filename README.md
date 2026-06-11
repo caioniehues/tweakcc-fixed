@@ -5,14 +5,14 @@ A hard fork of [Piebald-AI/tweakcc](https://github.com/Piebald-AI/tweakcc) that 
 > [!IMPORTANT]
 > **This fork is a superset of upstream and no longer merges from it (2026-06-04).** Upstream's `tweakcc` gates system-prompt overrides **off** for native installs and doesn't have this fork's override mechanisms (inline-blob, system-reminders) or extended extractor; we add those and apply system prompts to native installs too. Upstream is essentially static — recent releases are version bumps plus prompt-data drops we supersede (our extractor names 394 prompts for CC 2.1.173; Piebald's latest (2.1.170) extract has 346) — so there's nothing to gain by merging. We keep the `upstream` remote only as a **fetch-only comparison signal** and extract our own prompts.
 
-|                        |                                                                                                            |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------- |
-| **This fork**          | [skrabe/tweakcc-fixed](https://github.com/skrabe/tweakcc-fixed)                                            |
-| **Base**               | [Piebald-AI/tweakcc](https://github.com/Piebald-AI/tweakcc) @ `bc41a43`, then diverged                     |
-| **Target CC versions** | 2.0.98 through **2.1.173**                                                                                 |
-| **Install**            | from source only — the `tweakcc-fixed` npm package is a different, unmaintained fork ([Install](#install)) |
-| **Pairs with**         | [skrabe/lobotomized-claude-code](https://github.com/skrabe/lobotomized-claude-code) (per-model overrides)  |
-| **Agent guide**        | [`AGENTS.md`](./AGENTS.md) — bug-class diagnostics, patch authoring, the version-bump pipeline             |
+|                        |                                                                                                           |
+| ---------------------- | --------------------------------------------------------------------------------------------------------- |
+| **This fork**          | [skrabe/tweakcc-fixed](https://github.com/skrabe/tweakcc-fixed)                                           |
+| **Base**               | [Piebald-AI/tweakcc](https://github.com/Piebald-AI/tweakcc) @ `bc41a43`, then diverged                    |
+| **Target CC versions** | 2.0.98 through **2.1.173**                                                                                |
+| **Install**            | `npx tweakcc-fixed@latest` — published on npm from this repo ([Install](#install))                        |
+| **Pairs with**         | [skrabe/lobotomized-claude-code](https://github.com/skrabe/lobotomized-claude-code) (per-model overrides) |
+| **Agent guide**        | [`AGENTS.md`](./AGENTS.md) — bug-class diagnostics, patch authoring, the version-bump pipeline            |
 
 ## What this fork adds over the base
 
@@ -77,19 +77,31 @@ Use this fork's extraction surface with [skrabe/lobotomized-claude-code](https:/
 
 ## Install
 
-This fork is **not published to npm** — build and run from source:
+Published on npm as [`tweakcc-fixed`](https://www.npmjs.com/package/tweakcc-fixed) — this repo is the package's source (v2.0.0+):
+
+```bash
+npx tweakcc-fixed@latest            # interactive UI
+npx tweakcc-fixed@latest --apply    # apply customizations from ~/.tweakcc/config.json
+```
+
+After a Claude Code update overwrites the patches, just re-run `--apply`. Prompt
+data (`prompts-X.Y.Z.json`) is fetched at runtime from this repo's `main` branch,
+so new CC versions are supported as soon as this repo's version-bump pipeline
+lands — no package update needed for prompt data alone.
+
+> [!NOTE]
+> Package versions **≤ 1.0.5** were published from BenIsLegit's earlier,
+> now-unmaintained fork; **2.0.0+** is published from this repo and supersedes
+> them. (`npx tweakcc` is upstream Piebald, which doesn't apply system-prompt
+> overrides to native installs.)
+
+**From source** (contributing, or running unpublished work-in-progress):
 
 ```bash
 git clone https://github.com/skrabe/tweakcc-fixed ~/dev/tweakcc-fixed
 cd ~/dev/tweakcc-fixed && pnpm install && pnpm build
-node dist/index.mjs            # interactive UI
-node dist/index.mjs --apply    # apply customizations from ~/.tweakcc/config.json
+node dist/index.mjs --apply
 ```
-
-To update, `git pull && pnpm install && pnpm build` and re-run `--apply`.
-
-> [!WARNING]
-> Do **not** `npx tweakcc-fixed` — the [`tweakcc-fixed`](https://www.npmjs.com/package/tweakcc-fixed) npm package is a different, unmaintained fork that predates this repo and lacks all of its patches. (`npx tweakcc` is upstream Piebald, which doesn't apply system-prompt overrides to native installs.)
 
 ## How it works
 
