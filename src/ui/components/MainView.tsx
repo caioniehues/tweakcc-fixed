@@ -27,9 +27,9 @@ const PleaseStarBanner = () => (
   <Box>
     <Text color="yellow">
       ⭐ <Text bold>Star the repo at </Text>
-      <Link url="https://github.com/Piebald-AI/tweakcc" fallback={false}>
+      <Link url="https://github.com/skrabe/tweakcc-fixed" fallback={false}>
         <Text bold color="cyan">
-          https://github.com/Piebald-AI/tweakcc
+          https://github.com/skrabe/tweakcc-fixed
         </Text>
       </Link>
       <Text bold> if you find this useful!</Text> ⭐

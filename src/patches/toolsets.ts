@@ -749,13 +749,13 @@ export const writeToolsetComponentDefinition = (
         ${reactVar}.createElement(${textComponent}, { dimColor: true }, "If so, explicitly remind it what its tool list is, or tell it to check it itself.")
       ),
       ${reactVar}.createElement(${boxComponent}, null,
-        ${reactVar}.createElement(${textComponent}, { dimColor: true, bold: true }, "Toolsets are managed with tweakcc. "),
+        ${reactVar}.createElement(${textComponent}, { dimColor: true, bold: true }, "Toolsets are managed with tweakcc-fixed. "),
         ${reactVar}.createElement(${textComponent}, { dimColor: true }, "Run "),
-        ${reactVar}.createElement(${textComponent}, { color: "permission" }, "npx tweakcc"),
+        ${reactVar}.createElement(${textComponent}, { color: "permission" }, "npx tweakcc-fixed"),
         ${reactVar}.createElement(${textComponent}, { dimColor: true }, " to manage them.")
       ),
       ${reactVar}.createElement(${boxComponent}, { marginBottom: 1 },
-        ${reactVar}.createElement(${textComponent}, { color: "permission" }, "https://github.com/Piebald-AI/tweakcc")
+        ${reactVar}.createElement(${textComponent}, { color: "permission" }, "https://github.com/skrabe/tweakcc-fixed")
       ),
       ${reactVar}.createElement(${boxComponent}, { marginBottom: 1 },
         ${reactVar}.createElement(${textComponent}, null, "Current toolset: "),

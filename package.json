@@ -1,16 +1,16 @@
 {
-  "name": "tweakcc",
-  "version": "4.0.13",
+  "name": "tweakcc-fixed",
+  "version": "2.0.0",
   "type": "module",
-  "description": "Command-line tool to customize your Claude Code theme colors, thinking verbs and more.",
+  "description": "Maintained fork of tweakcc — patch an installed Claude Code (npm or native binary) with curated system-prompt overrides, system-reminder overrides, and fork-only patches. Pairs with skrabe/lobotomized-claude-code.",
   "main": "dist/lib/index.mjs",
-  "types": "dist/lib/index.d.ts",
+  "types": "dist/lib/index.d.mts",
   "bin": {
-    "tweakcc": "./dist/index.mjs"
+    "tweakcc-fixed": "./dist/index.mjs"
   },
   "exports": {
     ".": {
-      "types": "./dist/lib/index.d.ts",
+      "types": "./dist/lib/index.d.mts",
       "default": "./dist/lib/index.mjs"
     }
   },
@@ -24,7 +24,11 @@
     "test:dev": "vitest",
     "format": "prettier --write src",
     "version-bump:report": "node tools/versionBumpReport.js",
-    "prepare": "husky"
+    "prepare": "husky",
+    "prepublishOnly": "pnpm build"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "keywords": [
     "cli",
@@ -46,11 +50,19 @@
     "email": "support@piebald.ai",
     "url": "https://piebald.ai"
   },
+  "contributors": [
+    "skrabe (https://github.com/skrabe)",
+    "Ben (https://github.com/BenIsLegit)"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Piebald-AI/tweakcc.git"
+    "url": "git+https://github.com/skrabe/tweakcc-fixed.git"
   },
+  "bugs": {
+    "url": "https://github.com/skrabe/tweakcc-fixed/issues"
+  },
+  "homepage": "https://github.com/skrabe/tweakcc-fixed#readme",
   "devDependencies": {
     "@eslint/js": "^9.33.0",
     "@types/node": "^20.19.10",

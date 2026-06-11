@@ -1,4 +1,6 @@
 *
 !dist/*.mjs
 !dist/**/*.mjs
+!dist/*.d.mts
+!dist/**/*.d.mts
 !package.json

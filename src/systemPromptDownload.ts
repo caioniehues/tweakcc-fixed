@@ -71,8 +71,11 @@ export async function downloadStringsFile(
     // Cache miss or invalid - fall through to network.
   }
 
-  // Construct the GitHub raw URL
-  const url = `https://raw.githubusercontent.com/Piebald-AI/tweakcc/refs/heads/main/data/prompts/prompts-${version}.json`;
+  // Construct the GitHub raw URL. This MUST point at the fork's own repo: the
+  // npm tarball ships no data/, so npx installs resolve prompts JSONs from
+  // here — upstream's JSONs use different naming conventions and would
+  // silently mis-pair with this fork's overrides.
+  const url = `https://raw.githubusercontent.com/skrabe/tweakcc-fixed/refs/heads/main/data/prompts/prompts-${version}.json`;
 
   try {
     // Fetch the file from GitHub
@@ -85,7 +88,7 @@ export async function downloadStringsFile(
         errorMessage =
           'Rate limit exceeded. GitHub has temporarily blocked requests. Please wait a few minutes and try again.';
       } else if (response.status === 404) {
-        errorMessage = `Prompts file not found for Claude Code v${version}. This version was released within the past day or so and will be supported within a few hours.`;
+        errorMessage = `Prompts file not found for Claude Code v${version}. The fork's version-bump pipeline hasn't published prompts for this release yet — check https://github.com/skrabe/tweakcc-fixed for status.`;
       } else if (response.status >= 500) {
         errorMessage = `GitHub server error (${response.status}). Please try again later.`;
       } else {

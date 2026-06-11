@@ -1,7 +1,14 @@
 #!/usr/bin/env node
+import { createRequire } from 'node:module';
 import { render } from 'ink';
 import { Command } from 'commander';
 import chalk from 'chalk';
+
+// Resolves to the repo root in a checkout and the package root in an npm
+// install, so the reported version can never drift from the published one.
+const PKG_VERSION: string = createRequire(import.meta.url)(
+  '../package.json'
+).version;
 
 import App from './ui/App';
 import {
@@ -51,8 +58,8 @@ import { clearAllAppliedHashes } from './systemPromptHashIndex';
 // =============================================================================
 
 /**
- * Detects how the user invoked tweakcc to show the correct --apply command.
- * Handles: tweakcc, npx tweakcc, pnpm dlx tweakcc, yarn dlx tweakcc, etc.
+ * Detects how the user invoked tweakcc-fixed to show the correct --apply command.
+ * Handles: tweakcc-fixed, npx tweakcc-fixed, pnpm dlx tweakcc-fixed, etc.
  */
 function getInvocationCommand(): string {
   const args = process.argv;
@@ -63,20 +70,20 @@ function getInvocationCommand(): string {
 
   // Check for package manager dlx/npx patterns in the path
   if (scriptPath.includes('npx') || scriptPath.includes('.npm/_npx')) {
-    return 'npx tweakcc';
+    return 'npx tweakcc-fixed';
   }
   if (scriptPath.includes('pnpm') || scriptPath.includes('.pnpm')) {
-    return 'pnpm dlx tweakcc';
+    return 'pnpm dlx tweakcc-fixed';
   }
   if (scriptPath.includes('yarn')) {
-    return 'yarn dlx tweakcc';
+    return 'yarn dlx tweakcc-fixed';
   }
   if (scriptPath.includes('bun')) {
-    return 'bunx tweakcc';
+    return 'bunx tweakcc-fixed';
   }
 
-  // Default to just 'tweakcc' (globally installed or via PATH)
-  return 'tweakcc';
+  // Default to the bare bin name (globally installed or via PATH)
+  return 'tweakcc-fixed';
 }
 
 // =============================================================================
@@ -155,11 +162,11 @@ function printPatchResults(
 const main = async () => {
   const program = new Command();
   program
-    .name('tweakcc')
+    .name('tweakcc-fixed')
     .description(
-      'Command-line tool to customize your Claude Code theme colors, thinking verbs and more.'
+      'Maintained fork of tweakcc — customize and patch your installed Claude Code (system-prompt overrides, themes, thinking verbs and more).'
     )
-    .version('4.0.13')
+    .version(PKG_VERSION)
     .option('-d, --debug', 'enable debug mode')
     .option('-v, --verbose', 'enable verbose debug mode (includes diffs)')
     .option('--show-unchanged', 'show unchanged diffs (requires --verbose)')
@@ -438,7 +445,7 @@ async function handleApplyMode(
       }
       console.log(
         chalk.dim(
-          'Please open an issue on https://github.com/Piebald-AI/tweakcc/issues/new reporting these patching errors.'
+          'Please open an issue on https://github.com/skrabe/tweakcc-fixed/issues/new reporting these patching errors.'
         )
       );
     } else {
