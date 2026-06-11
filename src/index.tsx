@@ -1,14 +1,7 @@
 #!/usr/bin/env node
-import { createRequire } from 'node:module';
 import { render } from 'ink';
 import { Command } from 'commander';
 import chalk from 'chalk';
-
-// Resolves to the repo root in a checkout and the package root in an npm
-// install, so the reported version can never drift from the published one.
-const PKG_VERSION: string = createRequire(import.meta.url)(
-  '../package.json'
-).version;
 
 import App from './ui/App';
 import {
@@ -28,6 +21,7 @@ import {
   PatchResult,
   PatchGroup,
   getAllPatchDefinitions,
+  TWEAKCC_VERSION,
 } from './patches/index';
 import {
   preloadStringsFile,
@@ -166,7 +160,7 @@ const main = async () => {
     .description(
       'Maintained fork of tweakcc — customize and patch your installed Claude Code (system-prompt overrides, themes, thinking verbs and more).'
     )
-    .version(PKG_VERSION)
+    .version(TWEAKCC_VERSION)
     .option('-d, --debug', 'enable debug mode')
     .option('-v, --verbose', 'enable verbose debug mode (includes diffs)')
     .option('--show-unchanged', 'show unchanged diffs (requires --verbose)')

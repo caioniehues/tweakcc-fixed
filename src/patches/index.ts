@@ -3,6 +3,19 @@ import * as fsSync from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+
+// package.json sits two levels up from src/patches/ but one level up from the
+// bundled dist/*.mjs chunks, so try both — keeps the reported version pinned
+// to the published one instead of a hardcoded literal that drifts.
+const _require = createRequire(import.meta.url);
+export const TWEAKCC_VERSION: string = (() => {
+  try {
+    return (_require('../package.json') as { version: string }).version;
+  } catch {
+    return (_require('../../package.json') as { version: string }).version;
+  }
+})();
 
 import {
   CONFIG_DIR,
@@ -855,7 +868,7 @@ export const applyCustomization = async (
       fn: c =>
         writePatchesAppliedIndication(
           c,
-          '4.0.13',
+          TWEAKCC_VERSION,
           legacyItems,
           showTweakccVersion,
           showPatchesApplied

@@ -287,7 +287,7 @@ const applyIndicatorPatchesListPatch = (
     `,${reactVar}.createElement(${boxComponent}, { flexDirection: "column" },`
   );
   lines.push(
-    `${reactVar}.createElement(${boxComponent}, null, ${reactVar}.createElement(${textComponent}, {color: "success", bold: true}, "┃ "), ${reactVar}.createElement(${textComponent}, {color: "success", bold: true}, "✓ tweakcc patches are applied")),`
+    `${reactVar}.createElement(${boxComponent}, null, ${reactVar}.createElement(${textComponent}, {color: "success", bold: true}, "┃ "), ${reactVar}.createElement(${textComponent}, {color: "success", bold: true}, "✓ tweakcc-fixed patches are applied")),`
   );
   for (let item of patchesApplies) {
     item = item.replace('CHALK_VAR', chalkVar);
@@ -441,7 +441,7 @@ export const writePatchesAppliedIndication = (
     return null;
   }
 
-  const newText = `\\n${tweakccVersion} (tweakcc)`;
+  const newText = `\\n${tweakccVersion} (tweakcc-fixed)`;
   // Patch ALL occurrences of the version pattern (commander help text + console.log early exit)
   const versionPattern = '}.VERSION} (Claude Code)';
   let content = fileContents.replaceAll(
@@ -572,7 +572,7 @@ export const writePatchesAppliedIndication = (
         `,${reactVar}.createElement(${boxComponent}, { flexDirection: "column" },`
       );
       lines.push(
-        `${reactVar}.createElement(${boxComponent}, null, ${reactVar}.createElement(${textComponent}, {color: "success", bold: true}, "┃ "), ${reactVar}.createElement(${textComponent}, {color: "success", bold: true}, "✓ tweakcc patches are applied")),`
+        `${reactVar}.createElement(${boxComponent}, null, ${reactVar}.createElement(${textComponent}, {color: "success", bold: true}, "┃ "), ${reactVar}.createElement(${textComponent}, {color: "success", bold: true}, "✓ tweakcc-fixed patches are applied")),`
       );
       for (let item of patchesApplies) {
         item = item.replace('CHALK_VAR', chalkVar);
