@@ -1198,7 +1198,24 @@ export const applyCustomization = async (
         clearBytecode
       );
       assertNativeBinaryStarts(tempBinaryPath);
-      await fs.copyFile(tempBinaryPath, ccInstInfo.nativeInstallationPath);
+      // Land the repacked binary via an atomic same-directory rename so the live
+      // path gets a NEW inode. An in-place copyFile reuses the target's inode,
+      // which leaves macOS's cached code-signature for that vnode stale -> the
+      // next `claude` exec dies with a silent SIGKILL (Code Signature Invalid).
+      // A rename is also the safe way to swap a binary that may be executing.
+      const finalPath = ccInstInfo.nativeInstallationPath;
+      const stagedPath = path.join(
+        path.dirname(finalPath),
+        `.${path.basename(finalPath)}.tweakcc-${process.pid}`
+      );
+      try {
+        await fs.copyFile(tempBinaryPath, stagedPath);
+        await fs.chmod(stagedPath, fsSync.statSync(finalPath).mode);
+        await fs.rename(stagedPath, finalPath);
+      } catch (e) {
+        await fs.rm(stagedPath, { force: true });
+        throw e;
+      }
     } finally {
       await fs.rm(tempDir, { recursive: true, force: true });
     }

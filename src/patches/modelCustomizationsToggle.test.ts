@@ -24,6 +24,7 @@ const mockCopyFile = vi.hoisted(() => vi.fn());
 const mockChmod = vi.hoisted(() => vi.fn());
 const mockMkdtemp = vi.hoisted(() => vi.fn());
 const mockRm = vi.hoisted(() => vi.fn());
+const mockRename = vi.hoisted(() => vi.fn());
 
 vi.mock('node:fs/promises', () => ({
   readFile: mockReadFile,
@@ -31,6 +32,7 @@ vi.mock('node:fs/promises', () => ({
   chmod: mockChmod,
   mkdtemp: mockMkdtemp,
   rm: mockRm,
+  rename: mockRename,
 }));
 
 vi.mock('../config', () => ({
