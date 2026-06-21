@@ -26,7 +26,7 @@ A directory `~/.tweakcc/system-reminders/` with one `.md` file per editable dyna
 - **Custom body** → pristine content replaced.
 - **`{{placeholder}}` tokens** → whitelisted JS expressions substituted at apply time.
 
-Files are seeded automatically on first `--apply`. The registry (~30 entries) covers the claudeMd context wrapper, the anti-thinking nudge, MCP per-server overrides, token/budget telemetry, plan-mode reminders, hook/tool-call wrappers, the task-list reminder, the ultrathink booster, the user-sent-new-message wrap, the stop-hook session-goal, and more. UI: `tweakcc` → **System reminders (injection lobotomy)**.
+Files are seeded automatically on first `--apply`. The registry (35 entries) covers the claudeMd context wrapper, the anti-thinking nudge, MCP per-server overrides, token/budget telemetry, plan-mode reminders, hook/tool-call wrappers, the task-list reminder, the ultrathink booster, the user-sent-new-message wrap, the stop-hook session-goal, and more. UI: `tweakcc` → **System reminders (injection lobotomy)**.
 
 ### MCP per-server instruction routing
 
