@@ -6,6 +6,7 @@ import {
   showDiff,
 } from './index';
 import { UserMessageDisplayConfig } from '../types';
+import { escapeNonAscii } from '../utils';
 
 /**
  * Escape a user-supplied string before splicing it into a backtick template
@@ -359,7 +360,9 @@ export const writeUserMessageDisplay = (
           customBorder =
             '{top:"━",bottom:"━",left:" ",right:" ",topLeft:" ",topRight:" ",bottomLeft:" ",bottomRight:" "}';
         }
-        extraBoxAttrs.push(`borderStyle:${customBorder}`);
+        // \uXXXX-escape the box-drawing glyphs (─ ═ ━) so they survive CC's
+        // Latin-1 module storage instead of mojibaking the border on Bun CC.
+        extraBoxAttrs.push(`borderStyle:${escapeNonAscii(customBorder)}`);
       } else {
         extraBoxAttrs.push(`borderStyle:"${config.borderStyle}"`);
       }
@@ -487,7 +490,7 @@ export const writeUserMessageDisplay = (
         customBorder =
           '{top:"━",bottom:"━",left:" ",right:" ",topLeft:" ",topRight:" ",bottomLeft:" ",bottomRight:" "}';
       }
-      boxAttrs.push(`borderStyle:${customBorder}`);
+      boxAttrs.push(`borderStyle:${escapeNonAscii(customBorder)}`);
     } else {
       boxAttrs.push(`borderStyle:"${config.borderStyle}"`);
     }

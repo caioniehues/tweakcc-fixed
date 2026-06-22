@@ -2,6 +2,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import matter from 'gray-matter';
 import { SYSTEM_REMINDERS_DIR } from './config';
+import { escapeNonAscii } from './utils';
 
 export interface ReminderOverride {
   id: string;
@@ -135,10 +136,16 @@ export const substitutePlaceholders = (
   let out = '';
   for (let i = 0; i < segments.length; i++) {
     if (i % 2 === 0) {
-      out += segments[i]
-        .replace(/\\/g, '\\\\')
-        .replace(/`/g, '\\`')
-        .replace(/\$\{/g, '\\${');
+      // Escape non-ASCII LAST (after the backslash-doubling above): the reminder
+      // body lands in a JS template literal in cli.js, which Bun stores as
+      // Latin-1, so a raw multibyte char (e.g. an em-dash) would mojibake in the
+      // reminder the model reads. Placeholder segments are JS exprs — left raw.
+      out += escapeNonAscii(
+        segments[i]
+          .replace(/\\/g, '\\\\')
+          .replace(/`/g, '\\`')
+          .replace(/\$\{/g, '\\${')
+      );
     } else {
       out += whitelistMap[segments[i]];
     }

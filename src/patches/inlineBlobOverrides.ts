@@ -27,7 +27,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import matter from 'gray-matter';
 
-import { debug } from '../utils';
+import { debug, escapeNonAscii as escapeNonAsciiUnicode } from '../utils';
 import { SYSTEM_PROMPTS_DIR } from '../config';
 import { showDiff } from './patchDiffing';
 
@@ -732,7 +732,16 @@ export const applyInlineBlobOverrides = async (
           r => r.name
         );
         const remappedBody = remapArrayIdentifiers(body, pristineIds);
-        replacement = '[' + remappedBody + ']';
+        // The raw-passthrough body is verbatim JS (array elements that may carry
+        // `${expr}` interpolations or nested templates), so it can't be string-
+        // encoded like the other kinds. Escape its non-ASCII to `\uXXXX` — valid
+        // inside JS string and template literals — so an em-dash in the body
+        // survives Bun's Latin-1 module storage instead of mojibaking in the
+        // prompt the model reads.
+        replacement =
+          '[' +
+          (escapeNonAscii ? escapeNonAsciiUnicode(remappedBody) : remappedBody) +
+          ']';
       } else {
         // Treat each line of the body as one quoted string element
         const lines = body.split('\n');
