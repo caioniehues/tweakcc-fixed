@@ -228,9 +228,11 @@ fn parse(tool: Tool, raw: Vec<String>) -> Opts {
         before_context: 0,
         after_context: 0,
         include_exts: Vec::new(),
-        fff_first: std::env::var("RG_FFF_FIRST")
-            .map(|v| v == "1")
-            .unwrap_or(false),
+        // fff-first (serve RE2 = the model's intended dialect) is the MAINSTREAM
+        // production default: when this wrapper is installed the feature is on and
+        // the user wants fff to be the search. RG_FFF_FIRST=0 opts back into the
+        // conservative byte-equiv (mirror ugrep -G BRE) mode.
+        fff_first: std::env::var("RG_FFF_FIRST").as_deref() != Ok("0"),
         no_fallback: false,
         claude_bin: None,
         force_fallback: false,
@@ -1196,7 +1198,9 @@ mod tests {
     }
 
     fn p(tool: Tool, args: &[&str]) -> Opts {
-        parse(tool, args.iter().map(|s| s.to_string()).collect())
+        let mut o = parse(tool, args.iter().map(|s| s.to_string()).collect());
+        o.fff_first = false; // deterministic: parse-tests don't depend on the env default
+        o
     }
 
     #[test]
