@@ -413,7 +413,10 @@ fn search_mode(o: &Opts) -> Option<Mode> {
         return Some(Mode::Fuzzy);
     }
     let is_regex_orig = has_regex_meta(pat, o.eff_ere());
-    if o.ignore_case || is_regex_orig {
+    // A literal PHRASE with DSL operators (space/`:`/`/`/`!`) can't go through
+    // fff's DSL parser, but it CAN be served as an escaped literal via the
+    // DSL-bypassing regex path (byte-identical to a literal grep). Route it there.
+    if o.ignore_case || is_regex_orig || has_dsl_operator(pat) {
         // Regex mode bypasses the DSL (raw pattern as the needle), so DSL operators
         // in the pattern are fine. -i is served here via a (?i) prefix built in
         // effective_pattern. The dialect gate applies only to a genuine regex
@@ -446,26 +449,28 @@ fn search_mode(o: &Opts) -> Option<Mode> {
     }
 }
 
-/// The literal pattern as a case-insensitive regex: `(?i)` + the pattern (regex
-/// metacharacters escaped when the original was a literal, so it stays literal).
-fn ci_regex_pattern(o: &Opts) -> String {
+/// The actual needle fff runs for a given mode: a `(?i)` regex for case-
+/// insensitive Regex searches, otherwise the raw pattern. (Plain/Fuzzy handle
+/// `-i` via smart_case; only Regex needs the inline flag.)
+fn effective_pattern(o: &Opts, mode: Mode) -> String {
     let pat = o.pattern.clone().unwrap_or_default();
+    if !matches!(mode, Mode::Regex) {
+        return pat;
+    }
+    // In Regex mode: a genuine regex passes through raw; a LITERAL (no metas for
+    // the active dialect) is regex-escaped so it matches exactly. This lets us
+    // serve literal PHRASES the DSL can't (spaces/`:`/`/`/`!`) by routing them
+    // through the DSL-bypassing regex path as an escaped literal — byte-identical
+    // to a literal grep. `-i` adds the inline (?i) flag on top.
     let body = if has_regex_meta(&pat, o.eff_ere()) {
         pat
     } else {
         regex::escape(&pat)
     };
-    format!("(?i){body}")
-}
-
-/// The actual needle fff runs for a given mode: a `(?i)` regex for case-
-/// insensitive Regex searches, otherwise the raw pattern. (Plain/Fuzzy handle
-/// `-i` via smart_case; only Regex needs the inline flag.)
-fn effective_pattern(o: &Opts, mode: Mode) -> String {
-    if matches!(mode, Mode::Regex) && o.ignore_case {
-        ci_regex_pattern(o)
+    if o.ignore_case {
+        format!("(?i){body}")
     } else {
-        o.pattern.clone().unwrap_or_default()
+        body
     }
 }
 
@@ -1117,6 +1122,9 @@ mod tests {
         let mut f = opts(Tool::Ugrep, "showDiff", &["src"]);
         f.fuzzy = true;
         assert!(matches!(search_mode(&f), Some(Fuzzy)));
+        // a literal PHRASE (DSL operators) routes to Regex as an escaped literal
+        assert!(matches!(search_mode(&opts(Tool::Ugrep, "export const", &["src"])), Some(Regex)));
+        assert!(matches!(search_mode(&opts(Tool::Ugrep, "key: value", &["src"])), Some(Regex)));
         // -i (any case) routes to Regex (served via a (?i) prefix)
         let mut lo = opts(Tool::Ugrep, "showdiff", &["src"]);
         lo.ignore_case = true;
@@ -1211,14 +1219,21 @@ mod tests {
     }
 
     #[test]
-    fn ci_pattern_escapes_literal_but_not_regex() {
+    fn effective_pattern_escapes_literal_but_not_regex() {
         // "a+b": literal in BRE (escape the +) but a regex in ERE (keep the +).
         let mut lit = opts(Tool::Ugrep, "a+b", &["src"]);
         lit.ignore_case = true;
-        assert_eq!(ci_regex_pattern(&lit), "(?i)a\\+b");
+        assert_eq!(effective_pattern(&lit, Mode::Regex), "(?i)a\\+b");
         let mut re = opts(Tool::Rg, "a+b", &["src"]);
         re.ignore_case = true;
-        assert_eq!(ci_regex_pattern(&re), "(?i)a+b");
+        assert_eq!(effective_pattern(&re, Mode::Regex), "(?i)a+b");
+        // a literal PHRASE (no regex meta, no -i) is escaped so it matches exactly
+        let phrase = opts(Tool::Ugrep, "export const", &["src"]);
+        assert_eq!(effective_pattern(&phrase, Mode::Regex), "export const");
+        // a phrase containing a regex-special char that is NOT a meta for the
+        // dialect is escaped (BRE: + is literal -> escape it)
+        let p2 = opts(Tool::Ugrep, "a+ b", &["src"]);
+        assert_eq!(effective_pattern(&p2, Mode::Regex), "a\\+ b");
     }
 
     #[test]
@@ -1228,8 +1243,6 @@ mod tests {
         // empty-matcher / newline regex -> defer
         assert!(search_mode(&opts(Tool::Rg, "x?", &["src"])).is_none());
         assert!(search_mode(&opts(Tool::Rg, "a\\s+b", &["src"])).is_none());
-        // DSL operator in pattern (plain) -> defer
-        assert!(search_mode(&opts(Tool::Ugrep, "a b", &["src"])).is_none());
         // non-ascii -> defer
         assert!(search_mode(&opts(Tool::Ugrep, "café", &["src"])).is_none());
         // ugrep without -r -> defer
