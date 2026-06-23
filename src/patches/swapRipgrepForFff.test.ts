@@ -25,7 +25,15 @@ const RESOLVER = `if(Af()){let n=${DESCRIPTOR};return n}`;
 const BT = '`';
 const GREP_DESC = `;function gVr(e){if(xh(e))return${BT}Content search built on ripgrep. Bare identifiers.${BT};return${BT}A powerful search tool built on ripgrep. Full regex syntax.${BT}}`;
 
-const COMBINED = SHADOW + RESOLVER + GREP_DESC;
+// Two Bash-description variants (concise + full), each ending the dedicated-tool
+// bullet with "Prefer the dedicated tool." — the append target for the main agent.
+const BASH_DESC =
+  `;var bashHelp=[${BT}- Use Read to read files, not cat.${BT},` +
+  `${BT}- Avoid search commands; prefer dedicated tools after verifying. Prefer the dedicated tool.${BT},` +
+  `${BT}- \\\`timeout\\\` is in ms.${BT}];` +
+  `var bashHelp2=[${BT}- Avoid cat/head/tail. Prefer the dedicated tool.${BT}];`;
+
+const COMBINED = SHADOW + RESOLVER + GREP_DESC + BASH_DESC;
 
 const countOf = (s: string, sub: string) => s.split(sub).length - 1;
 
@@ -45,6 +53,14 @@ describe('swapRipgrepForFff', () => {
     expect(out).toContain('--fff-claude-bin='); // rg resolver
     expect(out).not.toContain('mode:"embedded"');
     expect(countOf(out, 'Search backend note (fff):')).toBe(2); // concise + full
+  });
+
+  it('appends fff-backed/--fuzzy guidance to both Bash description variants', () => {
+    const out = writeSwapRipgrepForFff(COMBINED, WRAPPER)!;
+    expect(countOf(out, 'fff-backed')).toBe(2); // both bash variants
+    expect(out).toContain('--fuzzy');
+    // inserted inside the bullet, before its closing backtick (no raw backticks)
+    expect(out).toContain('Prefer the dedicated tool. Note: grep and find');
   });
 
   it('is idempotent (no-op when already applied)', () => {

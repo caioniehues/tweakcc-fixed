@@ -1032,6 +1032,7 @@ name = "rg-fff"
 version = "0.1.0"
 dependencies = [
  "fff-search",
+ "libc",
 ]
 
 [[package]]

@@ -8,12 +8,23 @@
 //!   * argv0 = ugrep | grep   -> fff content search (literal), else embedded ugrep
 //!   * argv0 = rg             -> fff content search (literal), else embedded rg
 //!   * argv0 = bfs  | find    -> embedded bfs (fff find_files is a roadmap item)
-//!   * argv0 = fff            -> explicit fff content search (+ --fuzzy)
+//!   * argv0 = fff            -> explicit fff content search
 //!
-//! Output impersonates the tool the model invoked (grep/rg-style PATH:LINE:TEXT),
-//! ranked by fff. Fallback re-execs the real embedded tool via the claude binary
-//! (argv0 multicall), so nothing is ever silently lost.
+//! Levers:
+//!   * `--fuzzy`            -> typo-tolerant, relevance-ranked fff (labeled approximate)
+//!   * `--no-fallback`      -> error instead of re-execing the embedded tool (CI)
+//!   * `--fff-claude-bin=P` -> claude binary for fallback (set by the rg resolver)
+//!   * `--daemon <root>`    -> run the warm-index daemon for <root> (see daemon.rs)
+//!
+//! A per-root warm-index daemon (daemon.rs) answers repeat searches without a
+//! cold scan; if it is absent or fails, we cold-scan and lazily spawn one. The
+//! daemon is purely a latency optimization — correctness never depends on it.
 
+mod daemon;
+
+use std::collections::BTreeMap;
+use std::fmt::Write as _;
+use std::io::Write as _;
 use std::path::Path;
 use std::process::Command;
 use std::time::Duration;
@@ -66,33 +77,81 @@ struct Opts {
     files_only: bool,   // -l
     count: bool,        // -c
     recursive: bool,    // -r / -R (grep)
-    fuzzy: bool,        // --fuzzy (fff explicit)
-    // any flag that means "fff cannot fof-this faithfully" -> fall back
+    fuzzy: bool,        // --fuzzy (explicit, typo-tolerant ranked discovery)
+    no_fallback: bool,  // --no-fallback (error instead of embedded re-exec)
+    claude_bin: Option<String>, // --fff-claude-bin= (from the rg resolver)
+    // any flag that means "fff cannot serve this faithfully" -> fall back
     force_fallback: bool,
+}
+
+/// The minimal, serializable search request shared by the cold path and the
+/// daemon (daemon.rs reconstructs this from the wire and calls format_results).
+pub struct SearchReq {
+    pub pattern: String,
+    pub dir: Option<String>,
+    pub line_numbers: bool,
+    pub files_only: bool,
+    pub count: bool,
+    pub fuzzy: bool,
 }
 
 fn main() {
     let argv: Vec<String> = std::env::args().collect();
+
+    // Daemon mode: `rg-fff --daemon <root>` (spawned detached by the client).
+    if argv.get(1).map(|s| s == "--daemon").unwrap_or(false) {
+        let root = argv.get(2).cloned().unwrap_or_else(|| ".".to_string());
+        daemon::serve(&root);
+        return;
+    }
+
     let a0 = argv.first().cloned().unwrap_or_default();
     let tool = Tool::from_argv0(&a0);
     let raw: Vec<String> = argv[1..].to_vec();
 
     // --version / -V: impersonate the real tool exactly (re-exec embedded).
     if raw.iter().any(|a| a == "--version" || a == "-V") {
-        fallback(tool, &raw); // never returns
+        let cb = claude_bin_from(&raw);
+        fallback(tool, &strip_custom(&raw), cb.as_deref());
     }
 
     // find/bfs: fff find_files is a roadmap item; for now route to embedded bfs.
     if tool == Tool::Bfs {
-        fallback(tool, &raw);
+        let cb = claude_bin_from(&raw);
+        fallback(tool, &strip_custom(&raw), cb.as_deref());
     }
 
     let opts = parse(tool, raw);
     if eligible(&opts) {
-        let code = run_fff(&opts);
-        std::process::exit(code);
+        std::process::exit(run_search(&opts));
     }
-    fallback(opts.tool, &opts.raw);
+    if opts.no_fallback {
+        eprintln!("rg-fff: query is not fff-eligible and --no-fallback is set");
+        std::process::exit(2);
+    }
+    fallback(
+        opts.tool,
+        &strip_custom(&opts.raw),
+        opts.claude_bin.as_deref(),
+    );
+}
+
+fn claude_bin_from(args: &[String]) -> Option<String> {
+    args.iter()
+        .find_map(|a| a.strip_prefix("--fff-claude-bin=").map(String::from))
+}
+
+/// Remove our private flags before re-execing the real embedded tool.
+fn strip_custom(args: &[String]) -> Vec<String> {
+    args.iter()
+        .filter(|a| {
+            *a != "--fuzzy"
+                && *a != "--no-fallback"
+                && *a != "--daemon"
+                && !a.starts_with("--fff-claude-bin=")
+        })
+        .cloned()
+        .collect()
 }
 
 /// Parse grep/ugrep/rg/fff argv into our decision struct. Conservative: anything
@@ -111,6 +170,8 @@ fn parse(tool: Tool, raw: Vec<String>) -> Opts {
         count: false,
         recursive: false,
         fuzzy: false,
+        no_fallback: false,
+        claude_bin: None,
         force_fallback: false,
     };
     let mut explicit_pattern: Option<String> = None;
@@ -120,6 +181,7 @@ fn parse(tool: Tool, raw: Vec<String>) -> Opts {
         let a = &raw[i];
         match a.as_str() {
             "--fuzzy" => o.fuzzy = true,
+            "--no-fallback" => o.no_fallback = true,
             "-i" | "--ignore-case" => o.ignore_case = true,
             "-l" | "--files-with-matches" | "-L" | "--files-without-match" => {
                 o.files_only = true;
@@ -176,26 +238,22 @@ fn parse(tool: Tool, raw: Vec<String>) -> Opts {
                 }
             }
             other => {
-                if let Some(rest) = other.strip_prefix("--exclude-dir=") {
+                if let Some(cb) = other.strip_prefix("--fff-claude-bin=") {
+                    o.claude_bin = Some(cb.to_string());
+                } else if let Some(rest) = other.strip_prefix("--exclude-dir=") {
                     let _ = rest; // CC VCS excludes — fff handles ignores
                 } else if other.starts_with("--exclude=")
                     || other.starts_with("--include=")
-                    || other.starts_with("--color=")
                 {
-                    // glob filters -> defer (fff constraint translation is lossy)
-                    if other.starts_with("--exclude=")
-                        || other.starts_with("--include=")
-                    {
-                        o.force_fallback = true;
-                    }
+                    o.force_fallback = true; // glob filters -> defer
+                } else if other.starts_with("--color=") {
+                    // cosmetic; ignore
                 } else if let Some(combined) = other.strip_prefix('-') {
                     if combined.is_empty() {
                         positionals.push(other.to_string()); // lone "-" (stdin)
                         o.force_fallback = true;
                     } else if combined.starts_with('-') {
-                        // unknown long flag -> tolerate (don't crash), but if it
-                        // could change semantics, be safe: defer.
-                        o.force_fallback = true;
+                        o.force_fallback = true; // unknown long flag -> be safe
                     } else {
                         // bundled short flags like -rn, -ri, -rln
                         for ch in combined.chars() {
@@ -206,8 +264,6 @@ fn parse(tool: Tool, raw: Vec<String>) -> Opts {
                                 'c' => o.count = true,
                                 'r' | 'R' => o.recursive = true,
                                 'H' | 'h' | 'I' | 'G' => {}
-                                'w' | 'o' | 'v' | 'x' | 'E' | 'P' | 'F'
-                                | 'z' | 'U' => o.force_fallback = true,
                                 _ => o.force_fallback = true,
                             }
                         }
@@ -239,7 +295,7 @@ fn eligible(o: &Opts) -> bool {
         Some(p) if !p.is_empty() => p,
         _ => return false,
     };
-    // Explicit fff/fuzzy always serves; otherwise require plain literal ASCII.
+    // Explicit fuzzy always serves; otherwise require plain literal ASCII.
     if !o.fuzzy {
         if has_regex_meta(pat) {
             return false; // regex -> the real tool does it right
@@ -258,11 +314,7 @@ fn eligible(o: &Opts) -> bool {
     // paths -> defer (grep/ugrep handle those precisely; fff is tree-oriented).
     match o.paths.len() {
         0 => true,
-        1 => {
-            let p = &o.paths[0];
-            // grep without -r on a dir errors; with -r or a dir, fff is right.
-            Path::new(p).is_dir()
-        }
+        1 => Path::new(&o.paths[0]).is_dir(),
         _ => false,
     }
 }
@@ -278,45 +330,105 @@ fn has_regex_meta(t: &str) -> bool {
     })
 }
 
-/// Run fff and emit tool-compatible output. Returns process exit code.
-fn run_fff(o: &Opts) -> i32 {
-    let base = ".".to_string();
-    let mode = if o.fuzzy {
-        GrepMode::Fuzzy
-    } else {
-        GrepMode::PlainText
-    };
+impl Opts {
+    fn to_req(&self) -> SearchReq {
+        SearchReq {
+            pattern: self.pattern.clone().unwrap_or_default(),
+            dir: self.paths.first().cloned(),
+            line_numbers: self.line_numbers,
+            files_only: self.files_only,
+            count: self.count,
+            fuzzy: self.fuzzy,
+        }
+    }
+}
 
-    let shared_picker = SharedFilePicker::default();
-    let shared_frecency = SharedFrecency::default();
+/// Run an fff-eligible search: try the warm daemon first; on a miss, cold-scan
+/// and lazily spawn a daemon for next time. Returns the process exit code.
+fn run_search(o: &Opts) -> i32 {
+    let req = o.to_req();
+    let daemon_enabled = std::env::var_os("RG_FFF_NO_DAEMON").is_none();
+    let root = std::env::current_dir()
+        .ok()
+        .and_then(|c| std::fs::canonicalize(c).ok());
+
+    if daemon_enabled {
+        if let Some(root) = &root {
+            if let Some((out, code)) = daemon::query(root, &req) {
+                if std::env::var_os("RG_FFF_DEBUG").is_some() {
+                    eprintln!("rg-fff: daemon hit");
+                }
+                let mut w = std::io::stdout().lock();
+                let _ = w.write_all(out.as_bytes());
+                let _ = w.flush();
+                return code;
+            }
+        }
+    }
+    if std::env::var_os("RG_FFF_DEBUG").is_some() {
+        eprintln!("rg-fff: cold scan");
+    }
+
+    // Cold scan.
+    let shared = SharedFilePicker::default();
+    let frecency = SharedFrecency::default();
     if FilePicker::new_with_shared_state(
-        shared_picker.clone(),
-        shared_frecency.clone(),
+        shared.clone(),
+        frecency.clone(),
         FilePickerOptions {
-            base_path: base.into(),
+            base_path: ".".into(),
             mode: FFFMode::Ai,
             ..Default::default()
         },
     )
     .is_err()
     {
-        fallback(o.tool, &o.raw);
+        if o.no_fallback {
+            std::process::exit(2);
+        }
+        fallback(o.tool, &strip_custom(&o.raw), o.claude_bin.as_deref());
     }
-    shared_picker.wait_for_scan(Duration::from_secs(15));
-    let guard = match shared_picker.read() {
-        Ok(g) => g,
-        Err(_) => fallback(o.tool, &o.raw),
-    };
-    let picker = match guard.as_ref() {
-        Some(p) => p,
-        None => fallback(o.tool, &o.raw),
+    shared.wait_for_scan(Duration::from_secs(15));
+    {
+        let guard = match shared.read() {
+            Ok(g) => g,
+            Err(_) => {
+                fallback(o.tool, &strip_custom(&o.raw), o.claude_bin.as_deref())
+            }
+        };
+        let picker = match guard.as_ref() {
+            Some(p) => p,
+            None => {
+                fallback(o.tool, &strip_custom(&o.raw), o.claude_bin.as_deref())
+            }
+        };
+        let (out, code) = format_results(picker, &req);
+        let mut w = std::io::stdout().lock();
+        let _ = w.write_all(out.as_bytes());
+        let _ = w.flush();
+        // Warm a daemon for the next search in this root.
+        if daemon_enabled {
+            if let Some(root) = &root {
+                daemon::spawn_detached(root);
+            }
+        }
+        code
+    }
+}
+
+/// Grep `picker` per `req` and render tool-compatible output. Shared verbatim by
+/// the cold path and the daemon so both produce byte-identical results.
+pub fn format_results(picker: &FilePicker, req: &SearchReq) -> (String, i32) {
+    let mode = if req.fuzzy {
+        GrepMode::Fuzzy
+    } else {
+        GrepMode::PlainText
     };
 
-    // Build the fff query: a dir path becomes a constraint so emitted paths stay
-    // cwd-relative (matching grep -r <dir> output).
-    let pattern = o.pattern.clone().unwrap_or_default();
+    // A dir path becomes a query constraint so emitted paths stay cwd-relative
+    // (matching `grep -r <dir>` output).
     let mut query = String::new();
-    if let Some(dir) = o.paths.first() {
+    if let Some(dir) = &req.dir {
         let d = dir.trim_end_matches('/');
         if !d.is_empty() && d != "." {
             query.push_str(d);
@@ -324,21 +436,21 @@ fn run_fff(o: &Opts) -> i32 {
             query.push(' ');
         }
     }
-    query.push_str(&pattern);
-
+    query.push_str(&req.pattern);
     let parser = QueryParser::new(AiGrepConfig);
     let parsed = parser.parse(&query);
 
-    use std::io::Write;
-    let out = std::io::stdout();
-    let mut w = std::io::BufWriter::new(out.lock());
+    let mut out = String::new();
+    if req.fuzzy {
+        let _ = writeln!(
+            out,
+            "# fff: approximate (fuzzy) matches, ranked by relevance — not exact"
+        );
+    }
 
-    // count mode: per-file match counts (file:count)
-    if o.count {
-        let mut any = false;
+    if req.count {
+        let mut counts: BTreeMap<String, usize> = BTreeMap::new();
         let mut file_offset = 0usize;
-        let mut counts: std::collections::BTreeMap<String, usize> =
-            std::collections::BTreeMap::new();
         loop {
             let opts = grep_opts(mode, file_offset, false);
             let r = picker.grep(&parsed, &opts);
@@ -351,31 +463,29 @@ fn run_fff(o: &Opts) -> i32 {
             }
             file_offset = r.next_file_offset;
         }
+        let any = !counts.is_empty();
         for (f, c) in &counts {
-            let _ = writeln!(w, "{f}:{c}");
-            any = true;
+            let _ = writeln!(out, "{f}:{c}");
         }
-        let _ = w.flush();
-        return if any { 0 } else { 1 };
+        return (out, if any { 0 } else { 1 });
     }
 
     let mut any = false;
     let mut file_offset = 0usize;
     loop {
-        let opts = grep_opts(mode, file_offset, o.files_only);
+        let opts = grep_opts(mode, file_offset, req.files_only);
         let result = picker.grep(&parsed, &opts);
-
-        if o.files_only {
+        if req.files_only {
             for f in &result.files {
-                let _ = writeln!(w, "{}", f.relative_path(picker));
+                let _ = writeln!(out, "{}", f.relative_path(picker));
                 any = true;
             }
         } else {
             for m in &result.matches {
                 let f = result.files[m.file_index];
-                if o.line_numbers {
+                if req.line_numbers {
                     let _ = writeln!(
-                        w,
+                        out,
                         "{}:{}:{}",
                         f.relative_path(picker),
                         m.line_number,
@@ -383,7 +493,7 @@ fn run_fff(o: &Opts) -> i32 {
                     );
                 } else {
                     let _ = writeln!(
-                        w,
+                        out,
                         "{}:{}",
                         f.relative_path(picker),
                         m.line_content
@@ -392,20 +502,19 @@ fn run_fff(o: &Opts) -> i32 {
                 any = true;
             }
         }
-        if o.fuzzy || result.next_file_offset == 0 {
+        if req.fuzzy || result.next_file_offset == 0 {
             break;
         }
         file_offset = result.next_file_offset;
     }
-    let _ = w.flush();
-    if any {
-        0
-    } else {
-        1
-    }
+    (out, if any { 0 } else { 1 })
 }
 
-fn grep_opts(mode: GrepMode, file_offset: usize, files_only: bool) -> GrepSearchOptions {
+fn grep_opts(
+    mode: GrepMode,
+    file_offset: usize,
+    files_only: bool,
+) -> GrepSearchOptions {
     GrepSearchOptions {
         max_file_size: 10 * 1024 * 1024,
         max_matches_per_file: if files_only { 1 } else { 1_000_000 },
@@ -424,20 +533,21 @@ fn grep_opts(mode: GrepMode, file_offset: usize, files_only: bool) -> GrepSearch
 
 /// Re-exec the real embedded tool via the claude binary (argv0 multicall).
 /// Never returns.
-fn fallback(tool: Tool, args: &[String]) -> ! {
+fn fallback(tool: Tool, args: &[String], claude_bin: Option<&str>) -> ! {
     use std::os::unix::process::CommandExt;
 
-    let claude = std::env::var("CLAUDE_CODE_EXECPATH")
-        .ok()
+    let claude = claude_bin
+        .map(String::from)
         .filter(|p| Path::new(p).exists())
+        .or_else(|| {
+            std::env::var("CLAUDE_CODE_EXECPATH")
+                .ok()
+                .filter(|p| Path::new(p).exists())
+        })
         .or_else(|| {
             let h = std::env::var("HOME").ok()?;
             let p = format!("{h}/.local/bin/claude");
-            if Path::new(&p).exists() {
-                Some(p)
-            } else {
-                None
-            }
+            Path::new(&p).exists().then_some(p)
         });
 
     let a0 = tool.embedded_argv0();

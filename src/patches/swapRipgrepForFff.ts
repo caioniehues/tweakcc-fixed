@@ -38,13 +38,27 @@ const EMBEDDED_DESCRIPTOR =
 const EMBEDDED_RE =
   /\{mode:"embedded",command:process\.execPath,args:\[[^\]]*\],argv0:"rg"\}/;
 
-// ── 3. Grep-description guidance — best-effort ────────────────────────────────
+// ── 3. Grep-description guidance — best-effort (subagents w/ the Grep tool) ────
 const GREP_DESC_ANCHOR = 'built on ripgrep';
 const FFF_GUIDANCE_MARKER = 'Search backend note (fff):';
 const FFF_GUIDANCE =
   '\n\n' +
   FFF_GUIDANCE_MARKER +
   ' this tool is now powered by fff (a fast, typo-resistant file finder) for exact content searches, with ripgrep kept as an automatic fallback. For best results: prefer a single bare identifier over regex or multi-word phrases; results are relevance-ranked so read the top hit first; regex/multiline still work via ripgrep automatically.';
+
+// ── 4. Bash-description guidance — best-effort (the MAIN agent's only search
+//      surface; it has no Grep tool). Teaches that grep/find are fff-backed and
+//      exposes the --fuzzy lever. Inserted at the end of the "Prefer the
+//      dedicated tool" bullet (both description variants), post-override. ───────
+const BASH_GUIDANCE_ANCHOR = 'Prefer the dedicated tool';
+const BASH_GUIDANCE_MARKER = 'fff-backed';
+// NOTE: no backticks/quotes — this is spliced into a backtick template literal,
+// and a stray backtick would break template parity (the "Expected CommonJS
+// module to have a function wrapper" crash class).
+const BASH_GUIDANCE =
+  ' Note: grep and find here are ' +
+  BASH_GUIDANCE_MARKER +
+  ' (fast, typo-tolerant, relevance-ranked) with ripgrep/ugrep kept as an automatic fallback; results are relevance-ranked, so read the top hit first. Add --fuzzy to a grep for approximate/typo-tolerant search (e.g. grep --fuzzy SomeIdentifier).';
 
 /** [CRITICAL] Repoint the grep→ugrep / find→bfs shadow at the wrapper. */
 const repointBashSearchShadow = (
@@ -128,6 +142,46 @@ const appendGrepGuidance = (file: string): string => {
   return out;
 };
 
+/** [BEST-EFFORT] Append text before the unescaped closing backtick of every
+ *  bullet/string that contains `anchor`. Idempotent via `marker`. */
+const appendBeforeClosingBacktick = (
+  file: string,
+  anchor: string,
+  text: string,
+  marker: string,
+  label: string
+): string => {
+  if (file.includes(marker)) return file;
+  // Defensive: we splice before a backtick (inside a backtick template literal);
+  // a backtick in `text` would break template parity. Refuse rather than corrupt.
+  if (text.includes('`')) {
+    console.error(
+      `patch: swapRipgrepForFff: ${label} guidance contains a backtick; skipping (would break template parity)`
+    );
+    return file;
+  }
+  const inserts: number[] = [];
+  let from = 0;
+  for (;;) {
+    const a = file.indexOf(anchor, from);
+    if (a === -1) break;
+    let j = a;
+    while (j < file.length && !(file[j] === '`' && file[j - 1] !== '\\')) j++;
+    if (j < file.length) inserts.push(j);
+    from = a + anchor.length;
+  }
+  if (inserts.length === 0) {
+    debug(`patch: swapRipgrepForFff: ${label} anchor not found; skipping`);
+    return file;
+  }
+  let out = file;
+  for (const pos of inserts.sort((x, y) => y - x)) {
+    out = out.slice(0, pos) + text + out.slice(pos);
+  }
+  showDiff(file, out, text, inserts[inserts.length - 1], inserts[0]);
+  return out;
+};
+
 export const writeSwapRipgrepForFff = (
   oldFile: string,
   wrapperPath: string
@@ -142,6 +196,16 @@ export const writeSwapRipgrepForFff = (
 
   // 3. Grep-description guidance (subagents w/ the Grep tool) — best-effort.
   file = appendGrepGuidance(file);
+
+  // 4. Bash-description guidance (main agent: grep/find are fff-backed + the
+  //    --fuzzy lever) — best-effort.
+  file = appendBeforeClosingBacktick(
+    file,
+    BASH_GUIDANCE_ANCHOR,
+    BASH_GUIDANCE,
+    BASH_GUIDANCE_MARKER,
+    'Bash description'
+  );
 
   return file;
 };
