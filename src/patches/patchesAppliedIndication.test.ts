@@ -95,6 +95,36 @@ const JSX_FIXTURE =
   VERSION_OUTPUT +
   'var post=2;';
 
+// The real 2.1.186 startup banner wraps the header column in a flex ROW whose
+// LEFT child is the Clawd logo: R=H.jsxs(BOX,{flexDirection:"row",gap:2,
+// alignItems:"center",children:[LOGO, H.jsxs(BOX,{flexDirection:"column",
+// children:[Wy,Sy,Ey]})]}). PATCH 3 must wrap that row in a column and put the
+// list BELOW it (not inside the header column, which floats the centered logo
+// into the middle of the list).
+const JSX_BANNER_HEADER =
+  'function Bnr(e){' +
+  'let Wy;if(e[1]!==d)' +
+  'Wy=RC.jsxs(TX,{children:[RC.jsx(TX,{bold:!0,children:"Claude Code"})," ",' +
+  'RC.jsxs(TX,{dimColor:!0,children:["v",vv]})]}),e[1]=d,e[2]=Wy;else Wy=e[2];' +
+  'let Sy=RC.jsx(TX,{dimColor:!0,children:"sub"}),Ey=null,Lg=RC.jsx(TX,{children:"LOGO"});' +
+  'let R;if(e[3]!==Wy)R=RC.jsxs(BX,{flexDirection:"row",gap:2,alignItems:"center",children:[Lg,RC.jsxs(BX,{flexDirection:"column",children:[Wy,Sy,Ey]})]}),e[3]=Wy,e[4]=R;else R=e[4];' +
+  'return R}';
+
+const JSX_BANNER_FIXTURE =
+  'var pre=1;' +
+  MODULE_LOADER +
+  REACT_MODULE +
+  CHALK +
+  BOX_COMPONENT +
+  ';' +
+  TEXT_COMPONENT +
+  ';' +
+  PATCH2_PATH_B +
+  JSX_BANNER_HEADER +
+  ';' +
+  VERSION_OUTPUT +
+  'var post=2;';
+
 beforeEach(() => {
   // getReactVar memoizes the resolved minified name across calls; clear it so
   // each test resolves against its own fixture.
@@ -266,6 +296,54 @@ describe('writePatchesAppliedIndication', () => {
     };
 
     expect(balance(out!)).toEqual({ p: 0, b: 0, c: 0, inStr: null });
+  });
+
+  it('wraps the JSX banner row in a column with the patches list below it (PATCH 3 banner wrap)', () => {
+    const out = writePatchesAppliedIndication(JSX_BANNER_FIXTURE, '3.2.1', [
+      'shrink: 12 fewer chars',
+    ]);
+    expect(out).not.toBeNull();
+    // The banner row (logo + header) becomes the FIRST child of a wrapping
+    // column; the row keeps alignItems:"center" so the logo spans only the
+    // header, not the (tall) list.
+    expect(out).toContain(
+      'R=RC.jsxs(BX,{flexDirection:"column",children:[RC.jsxs(BX,{flexDirection:"row",gap:2,alignItems:"center",children:[Lg,'
+    );
+    // The header column is untouched ([Wy,Sy,Ey]) — the list did NOT go inside it
+    // (inserting it there is what floated the centered logo into the middle).
+    expect(out).toContain('flexDirection:"column",children:[Wy,Sy,Ey]})]})');
+    expect(out).not.toContain('children:[Wy,Sy,Ey,');
+    // The list renders as the row's SIBLING (2nd child of the wrap column).
+    expect(out).toContain('\\u2713 tweakcc-fixed patches are applied');
+    expect(out).toContain('* shrink: 12 fewer chars');
+    // String-aware delimiter balance over the whole output so cli.js still parses.
+    let p = 0;
+    let b = 0;
+    let c = 0;
+    let inStr: string | null = null;
+    let esc = false;
+    for (const ch of out!) {
+      if (esc) {
+        esc = false;
+        continue;
+      }
+      if (inStr) {
+        if (ch === '\\') esc = true;
+        else if (ch === inStr) inStr = null;
+        continue;
+      }
+      if (ch === '"' || ch === "'" || ch === '`') {
+        inStr = ch;
+        continue;
+      }
+      if (ch === '(') p++;
+      else if (ch === ')') p--;
+      else if (ch === '[') b++;
+      else if (ch === ']') b--;
+      else if (ch === '{') c++;
+      else if (ch === '}') c--;
+    }
+    expect({ p, b, c, inStr }).toEqual({ p: 0, b: 0, c: 0, inStr: null });
   });
 });
 

@@ -712,62 +712,108 @@ export const writePatchesAppliedIndication = (
       );
       return content;
     }
-    const patchesListLoc = findPatchesListLocation(content);
-    if (!patchesListLoc) {
-      // findPatchesListLocation already logged the specific cause (e.g. header
-      // component function not found on CC >= 2.1.86). Don't duplicate as an
-      // error — this is a cascade from the underlying shape change.
-      console.log(
-        'patch: patchesAppliedIndication: patch 3 skipped (see prior message)'
-      );
-    } else {
-      const lines = [];
-      lines.push(
-        `,${reactVar}.createElement(${boxComponent}, { flexDirection: "column" },`
-      );
-      lines.push(
-        `${reactVar}.createElement(${boxComponent}, null, ${reactVar}.createElement(${textComponent}, {color: "success", bold: true}, "\\u2503 "), ${reactVar}.createElement(${textComponent}, {color: "success", bold: true}, "\\u2713 tweakcc-fixed patches are applied")),`
-      );
+    // PATCH 3 (jsx, CC ≥2.1.186): the startup banner is a flex ROW —
+    //   R=H.jsxs($,{flexDirection:"row",gap:2,alignItems:"center",children:[
+    //       LOGO, H.jsxs($,{flexDirection:"column",children:[hdr…]})]})
+    // with the Clawd logo as the LEFT child. Inserting the (tall) patches list
+    // INTO the header column makes the vertically-centered logo float to the
+    // MIDDLE of the list and indents the whole list by the logo column. Instead,
+    // wrap the row in a column and render the list BELOW it: the logo then spans
+    // only the header, and the list is full-width. Falls back to the createElement
+    // header insertion for CC ≤2.1.185.
+    const bannerRowRe =
+      /([$\w]+)=([$\w]+)\.jsxs\(([$\w]+),\{flexDirection:"row",gap:2,alignItems:"center",children:\[[$\w]+,[$\w]+\.jsxs\([$\w]+,\{flexDirection:"column",children:\[[$\w,]+\]\}\)\]\}\)/;
+    const bannerMatch = content.match(bannerRowRe);
+    if (bannerMatch && bannerMatch.index !== undefined) {
+      const assignVar = bannerMatch[1];
+      const helper = bannerMatch[2];
+      const rowBox = bannerMatch[3]; // the Box component the banner row uses
+      const rowExpr = bannerMatch[0].slice(assignVar.length + 1); // strip "VAR="
+      // The patches list as a standalone column element (createElement interops
+      // with jsx); no surrounding array commas — it's placed as the 2nd child.
+      const el = [
+        `${reactVar}.createElement(${boxComponent}, { flexDirection: "column" },`,
+        `${reactVar}.createElement(${boxComponent}, null, ${reactVar}.createElement(${textComponent}, {color: "success", bold: true}, "\\u2503 "), ${reactVar}.createElement(${textComponent}, {color: "success", bold: true}, "\\u2713 tweakcc-fixed patches are applied")),`,
+      ];
       for (let item of patchesApplies) {
         item = item.replace('CHALK_VAR', chalkVar);
-        lines.push(
+        el.push(
           renderPatchListItemRow(reactVar, boxComponent, textComponent, item)
         );
       }
-      lines.push('),');
-      let patchesListCode = lines.join('\n');
-
-      // Avoid double comma at the start
-      if (
-        patchesListLoc.startIndex > 0 &&
-        content[patchesListLoc.startIndex - 1] === ',' &&
-        patchesListCode.startsWith(',')
-      ) {
-        patchesListCode = patchesListCode.slice(1);
-      }
-
-      // Avoid double comma at the end — if patches list ends with ',' and
-      // the next char is also ','
-      if (
-        patchesListCode.endsWith(',') &&
-        content[patchesListLoc.startIndex] === ','
-      ) {
-        patchesListCode = patchesListCode.slice(0, -1);
-      }
-
+      el.push(')');
+      const patchesElement = el.join('\n');
+      const wrapped = `${assignVar}=${helper}.jsxs(${rowBox},{flexDirection:"column",children:[${rowExpr},${patchesElement}]})`;
       const oldContent3 = content;
       content =
-        content.slice(0, patchesListLoc.startIndex) +
-        patchesListCode +
-        content.slice(patchesListLoc.endIndex);
-
+        content.slice(0, bannerMatch.index) +
+        wrapped +
+        content.slice(bannerMatch.index + bannerMatch[0].length);
       showDiff(
         oldContent3,
         content,
-        patchesListCode,
-        patchesListLoc.startIndex,
-        patchesListLoc.endIndex
+        wrapped,
+        bannerMatch.index,
+        bannerMatch.index + wrapped.length
       );
+    } else {
+      const patchesListLoc = findPatchesListLocation(content);
+      if (!patchesListLoc) {
+        // findPatchesListLocation already logged the specific cause (e.g. header
+        // component function not found on CC >= 2.1.86). Don't duplicate as an
+        // error — this is a cascade from the underlying shape change.
+        console.log(
+          'patch: patchesAppliedIndication: patch 3 skipped (see prior message)'
+        );
+      } else {
+        const lines = [];
+        lines.push(
+          `,${reactVar}.createElement(${boxComponent}, { flexDirection: "column" },`
+        );
+        lines.push(
+          `${reactVar}.createElement(${boxComponent}, null, ${reactVar}.createElement(${textComponent}, {color: "success", bold: true}, "\\u2503 "), ${reactVar}.createElement(${textComponent}, {color: "success", bold: true}, "\\u2713 tweakcc-fixed patches are applied")),`
+        );
+        for (let item of patchesApplies) {
+          item = item.replace('CHALK_VAR', chalkVar);
+          lines.push(
+            renderPatchListItemRow(reactVar, boxComponent, textComponent, item)
+          );
+        }
+        lines.push('),');
+        let patchesListCode = lines.join('\n');
+
+        // Avoid double comma at the start
+        if (
+          patchesListLoc.startIndex > 0 &&
+          content[patchesListLoc.startIndex - 1] === ',' &&
+          patchesListCode.startsWith(',')
+        ) {
+          patchesListCode = patchesListCode.slice(1);
+        }
+
+        // Avoid double comma at the end — if patches list ends with ',' and
+        // the next char is also ','
+        if (
+          patchesListCode.endsWith(',') &&
+          content[patchesListLoc.startIndex] === ','
+        ) {
+          patchesListCode = patchesListCode.slice(0, -1);
+        }
+
+        const oldContent3 = content;
+        content =
+          content.slice(0, patchesListLoc.startIndex) +
+          patchesListCode +
+          content.slice(patchesListLoc.endIndex);
+
+        showDiff(
+          oldContent3,
+          content,
+          patchesListCode,
+          patchesListLoc.startIndex,
+          patchesListLoc.endIndex
+        );
+      }
     }
   }
 
