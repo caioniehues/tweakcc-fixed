@@ -656,6 +656,56 @@ impl Opts {
 
 /// Run an fff-eligible search: warm daemon first, else cold-scan + lazily spawn
 /// a daemon. Returns the process exit code.
+/// fff-mcp's flagship behavior: when an EXACT search matched nothing, retry as
+/// fuzzy and surface the closest approximate hits (fff's "zero-match → fuzzy"),
+/// clearly labeled. fff's fuzzy already self-filters low-quality noise (min_score
+/// 50% + density/gap gates). Strictly the shell shadow (grep/ugrep, where the model
+/// reads raw bash text) and content mode only — a `-c` count, `-l`, the explicit
+/// `--fuzzy` path, or the rg-resolver/Grep-tool parser path never see it, so exact
+/// semantics (incl. refactor-counting) stay intact. Returns the labeled block to
+/// append after the (empty) exact output, or None. Opt out with RG_FFF_NO_FUZZY_FALLBACK.
+/// Pure eligibility gate for the auto-fuzzy-fallback (env opt-out handled by the
+/// caller). Only the shell shadow (Ugrep) + content mode; never explicit-fuzzy,
+/// already-fuzzy, `-c`, or `-l`.
+fn fuzzy_fallback_eligible(o: &Opts, mode: Mode) -> bool {
+    !o.fuzzy
+        && !matches!(mode, Mode::Fuzzy)
+        && !o.count
+        && !o.files_only
+        && o.tool == Tool::Ugrep
+}
+
+fn fuzzy_fallback_block(
+    o: &Opts,
+    mode: Mode,
+    root: Option<&std::path::Path>,
+    picker: Option<&FilePicker>,
+) -> Option<String> {
+    if std::env::var_os("RG_FFF_NO_FUZZY_FALLBACK").is_some()
+        || !fuzzy_fallback_eligible(o, mode)
+    {
+        return None;
+    }
+    let fz_req = o.to_req(Mode::Fuzzy);
+    let body = match picker {
+        Some(p) => format_results(p, &fz_req).map(|(s, _)| s),
+        None => root.and_then(|r| daemon::query(r, &fz_req).map(|(s, _)| s)),
+    }?;
+    // The body always starts with FUZZY_HDR; require >=1 real match line under it.
+    let has_match = body
+        .lines()
+        .any(|l| !l.starts_with('#') && !l.trim().is_empty());
+    if !has_match {
+        return None;
+    }
+    // Swap the generic fuzzy header for the "0 exact matches" fallback header.
+    let rest = body
+        .strip_prefix(FUZZY_HDR)
+        .and_then(|r| r.strip_prefix('\n'))
+        .unwrap_or(&body);
+    Some(format!("{FUZZY_FALLBACK_HDR}\n{rest}"))
+}
+
 fn run_search(o: &Opts, mode: Mode) -> i32 {
     let req = o.to_req(mode);
     let daemon_enabled = std::env::var_os("RG_FFF_NO_DAEMON").is_none();
@@ -678,6 +728,19 @@ fn run_search(o: &Opts, mode: Mode) -> i32 {
                 );
                 let mut w = std::io::stdout().lock();
                 let _ = w.write_all(out.as_bytes());
+                if code == 1 {
+                    if let Some(fz) =
+                        fuzzy_fallback_block(o, mode, Some(root.as_path()), None)
+                    {
+                        let _ = w.write_all(fz.as_bytes());
+                        log_decision(
+                            o.tool,
+                            &o.pattern,
+                            "fuzzy-fallback",
+                            fz.lines().count() as i64,
+                        );
+                    }
+                }
                 let _ = w.flush();
                 return code;
             }
@@ -740,6 +803,17 @@ fn run_search(o: &Opts, mode: Mode) -> i32 {
         };
         let mut w = std::io::stdout().lock();
         let _ = w.write_all(out.as_bytes());
+        if code == 1 {
+            if let Some(fz) = fuzzy_fallback_block(o, mode, None, Some(picker)) {
+                let _ = w.write_all(fz.as_bytes());
+                log_decision(
+                    o.tool,
+                    &o.pattern,
+                    "fuzzy-fallback",
+                    fz.lines().count() as i64,
+                );
+            }
+        }
         let _ = w.flush();
         if daemon_enabled {
             if let Some(root) = &root {
@@ -756,6 +830,21 @@ fn run_search(o: &Opts, mode: Mode) -> i32 {
 /// `path:line:text` shape; a -c count still counts the line once, unaffected).
 const TRUNC_MARK: &str =
     " [...rg-fff: line truncated at ~512B; Read the file for the full line]";
+
+/// Header line emitted above fuzzy (approximate) matches. Shared by the explicit
+/// `--fuzzy` path and the auto-fuzzy-fallback (which swaps it for FUZZY_FALLBACK_HDR).
+const FUZZY_HDR: &str =
+    "# fff: approximate (fuzzy) matches, ranked by relevance — not exact";
+
+/// Header for the auto-fuzzy-fallback: an exact search matched nothing, so we show
+/// fff's closest approximate hits (fff-mcp's flagship "zero-match → fuzzy" behavior).
+/// Loud about NOT being exact so the model never treats these as exact matches.
+const FUZZY_FALLBACK_HDR: &str =
+    "# rg-fff: 0 EXACT matches — closest APPROXIMATE (fuzzy) matches below; NOT exact, verify before relying:";
+
+/// Per-line trailing tag on every approximate (fuzzy) match, so a line copied out
+/// of context still reads as approximate. Parser-safe trailing text like TRUNC_MARK.
+const APPROX_MARK: &str = " [~approx]";
 
 /// Grep `picker` per `req` and render tool-compatible output. Shared verbatim by
 /// the cold path and the daemon. Returns None when fff can't serve faithfully.
@@ -866,10 +955,7 @@ pub fn format_results(
 
     let mut out = String::new();
     if is_fuzzy {
-        let _ = writeln!(
-            out,
-            "# fff: approximate (fuzzy) matches, ranked by relevance — not exact"
-        );
+        let _ = writeln!(out, "{FUZZY_HDR}");
     }
 
     if req.count {
@@ -1024,17 +1110,20 @@ pub fn format_results(
                 } else {
                     ""
                 };
+                // Fuzzy matches are approximate — tag every line so a copied line
+                // still reads as approximate (reinforces the header).
+                let approx = if is_fuzzy { APPROX_MARK } else { "" };
                 if req.line_numbers {
                     let _ = writeln!(
                         out,
-                        "{}{}:{}:{}{}",
-                        out_prefix, path, m.line_number, m.line_content, mark
+                        "{}{}:{}:{}{}{}",
+                        out_prefix, path, m.line_number, m.line_content, mark, approx
                     );
                 } else {
                     let _ = writeln!(
                         out,
-                        "{}{}:{}{}",
-                        out_prefix, path, m.line_content, mark
+                        "{}{}:{}{}{}",
+                        out_prefix, path, m.line_content, mark, approx
                     );
                 }
                 any = true;
@@ -1137,6 +1226,43 @@ mod tests {
             claude_bin: None,
             force_fallback: false,
         }
+    }
+
+    #[test]
+    fn fuzzy_fallback_only_shell_content_mode() {
+        // shell shadow (grep/ugrep) + exact content mode -> eligible
+        assert!(fuzzy_fallback_eligible(
+            &opts(Tool::Ugrep, "foo", &[]),
+            Mode::Plain
+        ));
+        assert!(fuzzy_fallback_eligible(
+            &opts(Tool::Ugrep, "foo", &[]),
+            Mode::Regex
+        ));
+        // rg-resolver / Grep-tool path -> NOT eligible (parser expects exact)
+        assert!(!fuzzy_fallback_eligible(
+            &opts(Tool::Rg, "foo", &[]),
+            Mode::Plain
+        ));
+        assert!(!fuzzy_fallback_eligible(
+            &opts(Tool::Fff, "foo", &[]),
+            Mode::Plain
+        ));
+        // -c / -l -> NOT eligible (a count must stay 0; -l is file list)
+        let mut c = opts(Tool::Ugrep, "foo", &[]);
+        c.count = true;
+        assert!(!fuzzy_fallback_eligible(&c, Mode::Plain));
+        let mut l = opts(Tool::Ugrep, "foo", &[]);
+        l.files_only = true;
+        assert!(!fuzzy_fallback_eligible(&l, Mode::Plain));
+        // explicit --fuzzy or already-fuzzy -> NOT eligible (no double fuzzy)
+        let mut f = opts(Tool::Ugrep, "foo", &[]);
+        f.fuzzy = true;
+        assert!(!fuzzy_fallback_eligible(&f, Mode::Plain));
+        assert!(!fuzzy_fallback_eligible(
+            &opts(Tool::Ugrep, "foo", &[]),
+            Mode::Fuzzy
+        ));
     }
 
     #[test]
