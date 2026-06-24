@@ -50,7 +50,7 @@ const FFF_GUIDANCE_MARKER = 'Search backend note (fff):';
 const FFF_GUIDANCE =
   '\n\n' +
   FFF_GUIDANCE_MARKER +
-  ' prefer one bare identifier over regex; results are relevance-ranked, so read the top hit first.';
+  ' prefer one bare identifier over regex; results are relevance-ranked, so read the top hit first. A trailing [def] tag flags a line that likely defines the symbol.';
 
 // ── 4. Bash-description guidance — best-effort (the MAIN agent's only search
 //      surface; it has no Grep tool, so this is where the --fuzzy lever lives).
@@ -60,7 +60,7 @@ const BASH_GUIDANCE_MARKER = 'most-relevant-first';
 const BASH_GUIDANCE =
   ' grep/find results are ranked ' +
   BASH_GUIDANCE_MARKER +
-  ' (read the top hit first); add --fuzzy to a grep for typo-tolerant or partial matches, e.g. grep --fuzzy SomeName.';
+  ' (read the top hit first); a trailing [def] tag flags a likely definition line, and a grep with no exact matches automatically lists the closest approximate matches tagged [~approx]. Add --fuzzy to force typo-tolerant or partial matching, e.g. grep --fuzzy SomeName.';
 
 /** [CRITICAL] Repoint the grep→ugrep / find→bfs shadow at the wrapper. */
 const repointBashSearchShadow = (
