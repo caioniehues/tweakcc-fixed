@@ -90,6 +90,7 @@ export function MiscView({ onSubmit }: MiscViewProps) {
     enableVoiceConciseOutput: true,
     enableChannelsMode: false,
     maxEffortDefault: false,
+    multiSkillInvocation: false,
     autonomousOperationAllModels: false,
     autoModeClassifierModel: 'default' as AutoModeClassifierModel,
     suppressDeferredTools: false,
@@ -769,6 +770,20 @@ export function MiscView({ onSubmit }: MiscViewProps) {
           updateSettings(settings => {
             ensureMisc();
             settings.misc!.maxEffortDefault = !settings.misc!.maxEffortDefault;
+          });
+        },
+      },
+      {
+        id: 'multiSkillInvocation',
+        title: 'Invoke every /skill you type',
+        description:
+          'When you type multiple /skill commands in one message ("/skill-1 /skill-2 do X"), run all of them instead of just the leading one. Skills marked disable-model-invocation that you name after the leading command otherwise hit "cannot be used with Skill tool" because the gate skips the message carrying the typed args. This scans the <command-args> you typed so those skills are honored.',
+        getValue: () => settings.misc?.multiSkillInvocation ?? false,
+        toggle: () => {
+          updateSettings(settings => {
+            ensureMisc();
+            settings.misc!.multiSkillInvocation =
+              !settings.misc!.multiSkillInvocation;
           });
         },
       },

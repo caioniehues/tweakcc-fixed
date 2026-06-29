@@ -11,6 +11,7 @@ const MODEL_FACING_IDS = [
   'fix-summarize-from-here',
   'fix-rewind-summary-header',
   'max-effort-default',
+  'multi-skill-invocation',
   'autonomous-operation-all-models',
   'auto-mode-classifier-model',
   'complexity-router',

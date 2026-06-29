@@ -745,6 +745,7 @@ export const DEFAULT_SETTINGS: Settings = {
     enableVoiceConciseOutput: true,
     enableChannelsMode: false,
     maxEffortDefault: false,
+    multiSkillInvocation: false,
     autonomousOperationAllModels: false,
     autoModeClassifierModel: 'default',
     suppressDeferredTools: false,
