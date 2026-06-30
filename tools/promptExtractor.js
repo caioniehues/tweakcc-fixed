@@ -64,6 +64,26 @@ const NEW_PROMPT_ASSIGNMENTS = [
     description: "Model-facing Grep tool_result fallback text shown when a content/count search finds no matches.",
   },
 
+  // 2.1.197 — Sonnet 5 added to the model catalog. The current-models system
+  // prompt was reworded ("Fable 5 and the Claude 4.X family" -> "the Claude 5
+  // family, Opus 4.8, and Haiku 4.5"), a fuzzy-miss that also dropped the
+  // identifierMap names (PROMPT_VAR_0..4). Restore the name + the exact 2.1.196
+  // identifierMap so the override re-binds 1:1 (pieces + identifiers array are
+  // byte-identical to 2.1.196; only the leading literal text changed).
+  {
+    matcher: t => t.includes("most recent Claude models are the Claude 5 family"),
+    name: "System Prompt: Current Claude models",
+    id: "system-prompt-current-claude-models",
+    description: "Lists the current Claude model family IDs and recommends using the latest capable Claude models for AI applications. 2.1.197 reworded the opening for the Claude 5 family (fuzzy-miss restore).",
+    identifierMap: {
+      0: "CLAUDE_MODEL_IDS",
+      1: "MODEL_ID_COLLECTION",
+      2: "MODEL_ID",
+      3: "FORMAT_MODEL_NAME_FN",
+      4: "DISPLAY_NAME",
+    },
+  },
+
   // ===== 2.1.190/191 model-facing-audit gaps (template literals that fail the
   // prose-quality gate: system-prompt fragments, var-indirected tool_results,
   // reminders, env/context blocks, git block, context-tip wrappers). Audit §4/§8/§9. =====
