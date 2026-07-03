@@ -92,7 +92,6 @@ import { writeScrollEscapeSequenceFilter } from './scrollEscapeSequenceFilter';
 import { writeWorktreeMode } from './worktreeMode';
 import { writeAllowCustomAgentModels } from './allowCustomAgentModels';
 import { writeMaxEffortDefault } from './maxEffortDefault';
-import { writeMultiSkillInvocation } from './multiSkillInvocation';
 import { writeAutonomousOperationAllModels } from './autonomousOperationAllModels';
 import { writeAutoModeClassifierModel } from './autoModeClassifierModel';
 import { writeComplexityRouter } from './complexityRouter';
@@ -432,14 +431,6 @@ const PATCH_DEFINITIONS = [
     group: PatchGroup.MISC_CONFIGURABLE,
     description:
       'Opus 4.7 sessions default to "max" reasoning effort instead of "xhigh" (override with /effort or CLAUDE_CODE_EFFORT_LEVEL)',
-    modelFacing: true,
-  },
-  {
-    id: 'multi-skill-invocation',
-    name: 'Invoke every /skill you type',
-    group: PatchGroup.MISC_CONFIGURABLE,
-    description:
-      'When you type multiple /skill commands in one message ("/skill-1 /skill-2 do X"), invoke all of them directly as user invocations, not just the leading one. CC parses only the first command and treats the rest as its args; this dispatches each additional typed /skill through the same executor so its body is injected into the turn — no model Skill-tool call, no disable-model-invocation gate. Only user-invocable prompt/skill commands the user actually typed are run. Off by default.',
     modelFacing: true,
   },
   {
@@ -1111,10 +1102,6 @@ export const applyCustomization = async (
     'max-effort-default': {
       fn: c => writeMaxEffortDefault(c),
       condition: !!config.settings.misc?.maxEffortDefault,
-    },
-    'multi-skill-invocation': {
-      fn: c => writeMultiSkillInvocation(c),
-      condition: !!config.settings.misc?.multiSkillInvocation,
     },
     'autonomous-operation-all-models': {
       fn: c => writeAutonomousOperationAllModels(c),

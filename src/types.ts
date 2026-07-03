@@ -147,7 +147,6 @@ export interface MiscConfig {
   enableVoiceConciseOutput: boolean;
   enableChannelsMode: boolean;
   maxEffortDefault: boolean;
-  multiSkillInvocation: boolean;
   autonomousOperationAllModels: boolean;
   autoModeClassifierModel: AutoModeClassifierModel;
   suppressDeferredTools: boolean;

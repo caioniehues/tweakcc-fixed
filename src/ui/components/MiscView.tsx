@@ -90,7 +90,6 @@ export function MiscView({ onSubmit }: MiscViewProps) {
     enableVoiceConciseOutput: true,
     enableChannelsMode: false,
     maxEffortDefault: false,
-    multiSkillInvocation: false,
     autonomousOperationAllModels: false,
     autoModeClassifierModel: 'default' as AutoModeClassifierModel,
     suppressDeferredTools: false,
@@ -770,20 +769,6 @@ export function MiscView({ onSubmit }: MiscViewProps) {
           updateSettings(settings => {
             ensureMisc();
             settings.misc!.maxEffortDefault = !settings.misc!.maxEffortDefault;
-          });
-        },
-      },
-      {
-        id: 'multiSkillInvocation',
-        title: 'Invoke every /skill you type',
-        description:
-          'When you type multiple /skill commands in one message ("/skill-1 /skill-2 do X"), invoke all of them directly instead of just the leading one. CC parses only the first command and treats the rest as its args; this dispatches each additional typed /skill through the same executor, so its body is injected into the turn — a real user invocation, no model Skill-tool call and no disable-model-invocation gate. Only user-invocable commands you actually typed are run.',
-        getValue: () => settings.misc?.multiSkillInvocation ?? false,
-        toggle: () => {
-          updateSettings(settings => {
-            ensureMisc();
-            settings.misc!.multiSkillInvocation =
-              !settings.misc!.multiSkillInvocation;
           });
         },
       },
