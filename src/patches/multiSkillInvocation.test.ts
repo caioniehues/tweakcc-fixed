@@ -111,4 +111,27 @@ describe('multiSkillInvocation', () => {
       consoleError.mockRestore();
     }
   });
+
+  it('no-ops (returns file unchanged) when CC ships native stacked-command invocation (2.1.199)', () => {
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      // CC 2.1.199 built multi-skill dispatch in natively — the seam gained a
+      // `for(...of stacked)` loop with `stackedOriginalInput` and the "Stacked
+      // skill /… blocked by UserPromptExpansion hook" warning. Splicing our
+      // pass on top would double-run every stacked skill, so we must no-op.
+      const native =
+        `${SEAM}` +
+        'for(let S of f){S.stackedOriginalInput=`/${p.name}`;' +
+        'x.push(jl(`Stacked skill /${S.name} blocked by UserPromptExpansion hook`,"warning"))}';
+      const result = writeMultiSkillInvocation(native);
+      // Returned unchanged, NOT patched (no injected token-list local).
+      expect(result).toBe(native);
+      expect(result).not.toContain('__tcMsiTok');
+      expect(consoleLog).toHaveBeenCalledWith(
+        'patch: multiSkillInvocation: multi-skill (stacked-command) invocation is native in this CC build — no-op'
+      );
+    } finally {
+      consoleLog.mockRestore();
+    }
+  });
 });

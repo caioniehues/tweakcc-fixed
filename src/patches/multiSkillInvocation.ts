@@ -48,6 +48,25 @@ export const writeMultiSkillInvocation = (oldFile: string): string | null => {
     return oldFile;
   }
 
+  // CC 2.1.199 promoted multi-skill ("stacked command") invocation NATIVELY:
+  // the slash-command executor now parses the extra /commands in a message into
+  // a `stacked` list and dispatches each in its own `for(...of stacked)` loop
+  // (telemetry `stacked_count`, per-message `stackedOriginalInput`, and the
+  // "Stacked skill /<name> blocked by UserPromptExpansion hook" warning). That
+  // is exactly what this patch injected on <=2.1.198, so if we also spliced our
+  // sibling-dispatch pass every stacked skill would run twice. This is the
+  // "feature promoted past the gate" case — no-op gracefully (and keep the old
+  // matcher below as the fallback for any CC build that still lacks it).
+  if (
+    oldFile.includes('stackedOriginalInput') ||
+    oldFile.includes('Stacked skill /')
+  ) {
+    console.log(
+      'patch: multiSkillInvocation: multi-skill (stacked-command) invocation is native in this CC build — no-op'
+    );
+    return oldFile;
+  }
+
   // Match the leading-skill dispatch in the executor's prompt case. Captures the
   // result var (1), executor (2), command (3), args (4), ctx (5), remaining
   // executor args (6-9), cleanup call (10-11) — all re-emitted verbatim so only
