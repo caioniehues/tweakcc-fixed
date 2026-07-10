@@ -70,29 +70,6 @@ const CURATED_IDENTIFIER_MAPS = {
 };
 
 const NEW_PROMPT_ASSIGNMENTS = [
-  // 2.1.206 capture-gap backfill — two fragments interpolating the inline
-  // `${{ISSUES_EXPLAINER, PACKAGE_URL, ...}}` object (same shape as
-  // data-anthropic-cli; the object literal stays inline in pieces, so no
-  // identifierMap is needed). Surfaced by the rejected-template recursion fix;
-  // never candidates, so the classification cache carries no name for them.
-  {
-    matcher: t =>
-      t.startsWith(
-        "- When you cannot find an answer or the feature doesn't exist, direct the user to ${{ISSUES_EXPLAINER:"
-      ),
-    name: 'Agent Prompt: Claude Code Guide — support escalation',
-    id: 'agent-prompt-claude-code-guide-support-escalation',
-    description:
-      'Escalation bullet of the claude-code-guide agent prompt: when documentation has no answer, direct the user to the issue tracker / package / docs URLs',
-  },
-  {
-    matcher: t =>
-      t.startsWith('To give feedback, users should ${{ISSUES_EXPLAINER:'),
-    name: 'System Prompt: Help block — feedback instructions',
-    id: 'system-prompt-help-feedback-instructions',
-    description:
-      'Feedback line of the main system prompt help block, pointing users at the issue tracker via the inline ISSUES_EXPLAINER object',
-  },
   // 2.1.206 — `tool-result-loop-stopped` was split into shared constants: the
   // re-arm sentence became a `let c = ...` template reused by two envelopes
   // (`Loop stopped — ${reason}. ${c}` and the no-pending-wakeup variant). Name
@@ -2399,6 +2376,22 @@ function isHardExcluded(text) {
     !text.includes('Your strengths') &&
     text.trimEnd().endsWith('so it only needs the essentials.')
   )
+    return true;
+  // Two fragments that interpolate the inline ${{ISSUES_EXPLAINER, ...,
+  // GIT_SHA, BUILD_TIME, DD_SOURCEMAP_GROUP}} object. The object's values are
+  // BUILD-SPECIFIC (the darwin binary embeds DD_SOURCEMAP_GROUP:"darwin" and
+  // that build's GIT_SHA/BUILD_TIME), so pristine pieces extracted on one
+  // platform can never match another platform's binary — cataloguing them
+  // produced two "Could not find" warnings on every Linux apply (seen on
+  // tencent, 2.7.0). Model-facing but no working cross-platform override
+  // target, same category as the general-purpose fragments above.
+  if (
+    text.startsWith(
+      "- When you cannot find an answer or the feature doesn't exist, direct the user to ${{ISSUES_EXPLAINER:"
+    )
+  )
+    return true;
+  if (text.startsWith('To give feedback, users should ${{ISSUES_EXPLAINER:'))
     return true;
   return false;
 }

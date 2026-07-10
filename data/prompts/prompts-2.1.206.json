@@ -3804,17 +3804,6 @@
       "version": "2.1.178"
     },
     {
-      "name": "Agent Prompt: Claude Code Guide — support escalation",
-      "id": "agent-prompt-claude-code-guide-support-escalation",
-      "description": "Escalation bullet of the claude-code-guide agent prompt: when documentation has no answer, direct the user to the issue tracker / package / docs URLs",
-      "pieces": [
-        "- When you cannot find an answer or the feature doesn't exist, direct the user to ${{ISSUES_EXPLAINER:\"report the issue at https://github.com/anthropics/claude-code/issues\",PACKAGE_URL:\"@anthropic-ai/claude-code\",README_URL:\"https://code.claude.com/docs/en/overview\",VERSION:\"<<CCVERSION>>\",FEEDBACK_CHANNEL:\"https://github.com/anthropics/claude-code/issues\",BUILD_TIME:\"<<BUILD_TIME>>\",GIT_SHA:\"edc8ebf7f852d3abffad32a5bf8e49e439f92afb\",DD_SOURCEMAP_GROUP:\"darwin\"}.ISSUES_EXPLAINER}"
-      ],
-      "identifiers": [],
-      "identifierMap": {},
-      "version": "2.1.206"
-    },
-    {
       "name": "Guide agent: no-answer fallback (/feedback)",
       "id": "system-prompt-guide-agent-no-answer-feedback",
       "description": "Alternate guide-agent system-prompt fragment directing users to /feedback to report a feature request or bug when no answer is found.",
@@ -33193,17 +33182,6 @@
       "description": "Keybindings skill example on rebinding the external editor shortcut.",
       "pieces": [
         "To change the external editor shortcut from `ctrl+g` to `ctrl+e`:"
-      ],
-      "identifiers": [],
-      "identifierMap": {},
-      "version": "2.1.206"
-    },
-    {
-      "name": "System Prompt: Help block — feedback instructions",
-      "id": "system-prompt-help-feedback-instructions",
-      "description": "Feedback line of the main system prompt help block, pointing users at the issue tracker via the inline ISSUES_EXPLAINER object",
-      "pieces": [
-        "To give feedback, users should ${{ISSUES_EXPLAINER:\"report the issue at https://github.com/anthropics/claude-code/issues\",PACKAGE_URL:\"@anthropic-ai/claude-code\",README_URL:\"https://code.claude.com/docs/en/overview\",VERSION:\"<<CCVERSION>>\",FEEDBACK_CHANNEL:\"https://github.com/anthropics/claude-code/issues\",BUILD_TIME:\"<<BUILD_TIME>>\",GIT_SHA:\"edc8ebf7f852d3abffad32a5bf8e49e439f92afb\",DD_SOURCEMAP_GROUP:\"darwin\"}.ISSUES_EXPLAINER}"
       ],
       "identifiers": [],
       "identifierMap": {},
