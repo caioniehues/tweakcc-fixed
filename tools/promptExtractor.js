@@ -48,7 +48,44 @@ const WORKFLOW_SCRIPT_IDENTIFIER_MAP = {
 // which therefore bound to slot 7 = `DYt`, a FUNCTION: truthy, so the patched
 // binary rendered the function's SOURCE TEXT into the Bash tool description.
 // No crash, no warning, invisible to the mis-bind audit (which trusts upstream).
+// system-prompt-coordinator-mode (verified against the pristine CC 2.1.211
+// cli.js, function `Lng(e)`): slots are numbered by DISTINCT var in first-seen
+// order, and the template's first interpolation is the conditional
+// `o = e ? Ing : "Every message you send is to the user."` note — NOT a tool
+// name. Our generated map never named that slot, so every label slid by one:
+//   [0] o  "${o} Worker results and system notifications…"   <- we said AGENT_TOOL_NAME
+//   [1] si "- **${si}** - Spawn a new worker"                 <- we said SENDMESSAGE_TOOL_NAME
+//   [2] uf "- **${uf}** - Continue an existing worker"        <- we said TASKSTOP_TOOL_NAME
+//   [3] RL "- **${RL}** - Stop a running worker"              <- we said WORKFLOW_CONDITIONAL_TOOL_NOTE
+//   [4] n  "${n}- **subscribe_pr_activity…"                   <- we said LISTAGENTS_TOOL_NAME
+//   [5] RV "- **${RV} / ${uf}** (cross-session, if ${RV}…"    <- we said WORKER_TOOLS_INTRO_TEXT
+//   [6] i  "After launching agents, ${i} and end your response"
+//   [7] r  "${r}\n\n## 4. Task Workflow"
+// Upstream doesn't ship this prompt, so auditMisbinds had nothing to compare
+// against and the mislabel was invisible. It bit both ways: opus-4-7's override
+// used the HONEST label `${AGENT_TOOL_NAME}` for "Spawn a new worker" and bound
+// to slot 0, rendering "- **Every message you send is to the user.** - Spawn a
+// new worker" (valid var, wrong content, no crash); opus-4-8's override had been
+// contorted to `${SENDMESSAGE_TOOL_NAME}` for the same line, which rendered
+// CORRECTLY only because the map was wrong. Fix the map; the overrides then use
+// names that mean what they say.
 const CURATED_IDENTIFIER_MAPS = {
+  'system-prompt-coordinator-mode': {
+    identifiers: [
+      0, 1, 2, 3, 4, 5, 2, 5, 5, 2, 1, 2, 6, 1, 1, 7, 2, 3, 1, 2, 1, 3, 2, 1, 1,
+      1, 2, 1, 2, 2, 2, 1, 1, 2,
+    ],
+    identifierMap: {
+      0: 'EVERY_MESSAGE_TO_USER_NOTE',
+      1: 'AGENT_TOOL_NAME',
+      2: 'SENDMESSAGE_TOOL_NAME',
+      3: 'TASKSTOP_TOOL_NAME',
+      4: 'WORKFLOW_CONDITIONAL_TOOL_NOTE',
+      5: 'LISTAGENTS_TOOL_NAME',
+      6: 'LAUNCH_ANNOUNCE_NOTE',
+      7: 'WORKER_TOOLS_INTRO_TEXT',
+    },
+  },
   'tool-description-bash-git-commit-and-pr-creation-instructions': {
     identifiers: [
       0, 1, 1, 2, 1, 1, 3, 4, 1, 1, 5, 6, 6, 2, 7, 8, 9, 9, 3, 4, 10, 10,
@@ -3265,16 +3302,39 @@ function mergeWithExisting(newData, oldData, currentVersion) {
   // the strict content+identifier match fails.
   const FUZZY_PREFIX = 100;
   const FUZZY_MIN = 60;
-  const fpCounts = new Map();
+  const fpIds = new Map(); // fingerprint -> Set(old ids sharing it)
   const fpToOld = new Map();
   for (const oldItem of oldData.prompts) {
     if (!oldItem.id) continue; // no carryover value without a name
     const fp = fpNormalize(reconstructContent(oldItem)).slice(0, FUZZY_PREFIX);
     if (fp.length < FUZZY_MIN) continue;
-    fpCounts.set(fp, (fpCounts.get(fp) || 0) + 1);
+    if (!fpIds.has(fp)) fpIds.set(fp, new Set());
+    fpIds.get(fp).add(oldItem.id);
     fpToOld.set(fp, oldItem);
   }
-  for (const [fp, count] of fpCounts) if (count > 1) fpToOld.delete(fp);
+  // Drop a fingerprint only when it is genuinely AMBIGUOUS — i.e. it belongs to
+  // two or more DIFFERENT old ids, where carrying either one over would be a
+  // coin flip (the wrong name is worse than no name; the classification cache
+  // names the leftover accurately downstream).
+  //
+  // A fingerprint shared by several entries of the SAME id is NOT ambiguous:
+  // same-id entries are multi-site splices of one prompt (each JSON entry is one
+  // binary site), so every candidate carries identical identity. Counting raw
+  // entries instead of distinct ids threw those away too — measured on 2.1.210:
+  // 76 fingerprints dropped for nothing vs 25 genuinely ambiguous ones. Those 76
+  // lose their name the moment Anthropic edits the prompt's body, which is
+  // precisely the case fuzzy carryover exists to survive.
+  for (const [fp, ids] of fpIds) {
+    if (ids.size > 1) {
+      fpToOld.delete(fp);
+      // Surface it: the affected prompt extracts ANONYMOUS and reads as
+      // "removed" in the version-bump report. Say so, so nobody triages a
+      // deliberate ambiguity drop as a real removal.
+      console.log(
+        `Fuzzy index: ambiguous fingerprint shared by ${ids.size} ids (${[...ids].join(', ')}) — carryover skipped; expect these to need cache/assignment naming`
+      );
+    }
+  }
 
   const newPrompts = newData.prompts.map((newItem, idx) => {
     const newContent = reconstructContent(newItem);
@@ -3629,7 +3689,7 @@ if (require.main === module) {
   // the next extraction acts on them.
   const catalogueBlob = mergedResult.prompts
     .map(p => p.pieces.join(''))
-    .join(' ');
+    .join('\x00');
   const gateCandidates = (result.gateCandidates || []).filter(
     c => !catalogueBlob.includes(c.body.slice(0, 80))
   );
@@ -3660,3 +3720,6 @@ module.exports.looksLikeEnglishProse = looksLikeEnglishProse;
 module.exports.isHardExcluded = isHardExcluded;
 module.exports.setCcVersionForCacheLookups = setCcVersionForCacheLookups;
 module.exports._setClassificationCacheForTests = _setClassificationCacheForTests;
+// Test seam: fuzzy-carryover collision policy (same-id multi-site vs
+// genuinely-ambiguous cross-id) is behavior worth locking down.
+module.exports.mergeWithExisting = mergeWithExisting;

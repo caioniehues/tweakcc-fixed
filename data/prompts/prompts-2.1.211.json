@@ -39402,14 +39402,14 @@
         2
       ],
       "identifierMap": {
-        "0": "AGENT_TOOL_NAME",
-        "1": "SENDMESSAGE_TOOL_NAME",
-        "2": "TASKSTOP_TOOL_NAME",
-        "3": "WORKFLOW_CONDITIONAL_TOOL_NOTE",
-        "4": "LISTAGENTS_TOOL_NAME",
-        "5": "WORKER_TOOLS_INTRO_TEXT",
-        "6": "SYSTEM_PROMPT_COORDINATOR_MODE_VAR_6",
-        "7": "SYSTEM_PROMPT_COORDINATOR_MODE_VAR_7"
+        "0": "EVERY_MESSAGE_TO_USER_NOTE",
+        "1": "AGENT_TOOL_NAME",
+        "2": "SENDMESSAGE_TOOL_NAME",
+        "3": "TASKSTOP_TOOL_NAME",
+        "4": "WORKFLOW_CONDITIONAL_TOOL_NOTE",
+        "5": "LISTAGENTS_TOOL_NAME",
+        "6": "LAUNCH_ANNOUNCE_NOTE",
+        "7": "WORKER_TOOLS_INTRO_TEXT"
       },
       "version": "2.1.199"
     },
