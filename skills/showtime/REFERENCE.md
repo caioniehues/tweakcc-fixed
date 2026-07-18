@@ -232,6 +232,46 @@ supplying the _entire_ new `identifierMap` (every slot, named correctly).
 
 ---
 
+## 6b. Bug class: a dedup claim checked against pristine instead of the deployed override
+
+**Symptom:** none. The apply is clean, the four zeros hold, the mis-bind audit exits 0 and smoke
+passes. Information is simply missing from what the model receives.
+
+**Cause.** An override is trimmed on the reasoning _"sibling Y already conveys this claim"_ — but
+the agent read **Y's pristine text** (from `data/prompts/prompts-X.Y.Z.json` or from `cli.js`),
+and Y's own override had already trimmed that sentence out. Overrides **replace** pristine, so
+coverage exists only in the deployed body.
+
+**The three cases.** Before accepting any coverage claim, establish which one Y is in:
+
+| Y's override file      | What reaches the model                      | Covers?                              |
+| ---------------------- | ------------------------------------------- | ------------------------------------ |
+| exists, has a body     | **only that body** — pristine is irrelevant | only if that body carries the claim  |
+| exists, body **empty** | nothing; Y is suppressed                    | **never**                            |
+| **no file**            | Y's pristine, verbatim                      | yes — pristine coverage is real here |
+
+**The circular variant.** If trims and wipe-merges run over the same batch, a trim can cite a
+sibling that the same run emptied. Observed twice in one release: A dropped a rule citing B while
+B was suppressed citing A. Net result — nothing anywhere carried the rule.
+
+**Prevention.**
+
+1. **Order the passes.** Resolve wipe-merges _before_ the trims that might cite them, so a cited
+   sibling's state is settled when it is cited.
+2. **Adversarially verify.** After any trim pass, re-check every trim whose rationale cites a
+   sibling, with the verifier instructed to _refute_ and required to open the cited sibling's
+   **deployed** `.md`. Measured hit rate on one release: 34 sibling-citing trims, **5 wrong (15%)**
+   — from agents that were otherwise rigorous and quoted the covering sentence verbatim. The
+   verbatim quote is exactly what makes the bad ones convincing.
+3. Never accept a negative `grep` as proof of absence (a NUL byte in a file makes grep return
+   false-empty for every pattern); confirm with python.
+
+**Detection after the fact.** For each suppressed or heavily-trimmed prompt, take the claim it
+used to carry and search the _deployed_ override set for it. If the only hits are in the prompts
+JSON and not in any `.md` body, the claim has left the build.
+
+---
+
 ## 7. Bug class: code patch applies clean but crashes a lazy UI path (capture-group lesson)
 
 **Symptom.** A regex-replace patch in `src/patches/*.ts` applies with 0 errors and
