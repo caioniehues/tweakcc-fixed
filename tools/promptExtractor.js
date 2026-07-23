@@ -453,6 +453,31 @@ const NEW_PROMPT_ASSIGNMENTS = [
     id: "system-prompt-claude-md-project-instructions-suffix",
     description: "Model-facing type-suffix label appended to a project CLAUDE.md path in the memory/context injection (\"Contents of ${path} (project instructions, checked into the codebase):\"); conditional on a Project-type memory item being present.",
   },
+  // The three <command-name> family members are pinned individually: the
+  // generic matcher below hits every content containing "<command-name>" —
+  // including the 44KB /doctor command body, which DOCUMENTS the tag in prose.
+  // In 2.1.218 the base content (<command-name>/ultrareview...) left the
+  // binary, and without these pins disambiguateIdCollisions' "longest content
+  // keeps the bare id" fallback handed the bare family id to the /doctor
+  // prompt, breaking established-id continuity (it was -4 since 2.1.216).
+  {
+    matcher: t => t.startsWith("# Claude Code Doctor"),
+    name: "Slash-Command Body: /doctor",
+    id: "system-prompt-command-name-framing-tag-4",
+    description: "Model-facing expanded body of the /doctor slash command (\"# Claude Code Doctor\\n\\nHealth-check my Claude Code setup...\"), captured at the command-name emission site; id keeps the -4 suffix it was established under in 2.1.216.",
+  },
+  {
+    matcher: t => t.startsWith('"content":"<command-name>/'),
+    name: "Slash-Command Name Framing Tag",
+    id: "system-prompt-command-name-framing-tag-2",
+    description: "Model-facing framing tag wrapping a slash-command invocation into a user-role message sent to the model (JSON-embedded variant, '\"content\":\"<command-name>/...'); present whenever a slash command is expanded into the conversation.",
+  },
+  {
+    matcher: t => t.startsWith("<command-name>/loop</command-name>"),
+    name: "Slash-Command Name Framing Tag",
+    id: "system-prompt-command-name-framing-tag-3",
+    description: "Model-facing framing tag wrapping the /loop slash-command invocation into a user-role message sent to the model (\"<command-name>/loop</command-name>\").",
+  },
   {
     matcher: t => t.includes("<command-name>"),
     name: "Slash-Command Name Framing Tag",
