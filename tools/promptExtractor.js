@@ -203,6 +203,643 @@ const CURATED_IDENTIFIER_MAPS = {
 };
 
 const NEW_PROMPT_ASSIGNMENTS = [
+  // 2.1.238 — 71 net-new anonymous prompts (artifact live rooms/verify/watches,
+  // plugin marketplace headersHelper family, subagent telemetry fields, auto-edit
+  // refusals) plus 3 fuzzy-carryover restores whose openings Anthropic reworded.
+  // Artifact live rooms — at-most-once broadcast channel for published artifacts.
+  {
+    matcher: t =>
+      t.includes('**Live room**: An artifact published with') &&
+      t.includes('claude.room.emit'),
+    name: 'Tool Description: Artifact Live Room Guidance',
+    id: 'tool-description-artifact-room-guidance',
+    description:
+      "The artifact tool's live-room section: how a published artifact with a room capability lets Claude join, receive claude.room.emit events as untrusted page data, and send via action room_send.",
+  },
+
+  // Artifact verify — reading captured runtime diagnostics for a published version.
+  {
+    matcher: t =>
+      t.includes('**Verify**: After publishing, never claim the page works') &&
+      t.includes('A no-viewer-yet result'),
+    name: 'Tool Description: Artifact Verify Guidance',
+    id: 'tool-description-artifact-verify-guidance',
+    description:
+      "The artifact tool's verify-action section: read captured runtime diagnostics for the current published version, and never claim success on a no-viewer-yet result.",
+  },
+  {
+    matcher: t =>
+      t.startsWith(" 'verify' reads the runtime diagnostics") &&
+      t.includes('An empty result can mean no viewer'),
+    name: 'Tool Parameter: Artifact Action Verify',
+    id: 'tool-parameter-artifact-action-verify',
+    description:
+      "The artifact tool's `action` parameter entry describing the verify option: reading a published version's captured console/error/capability diagnostics.",
+  },
+
+  // Artifact auto-edit decision retry — full-rewrite form rejected, ask again.
+  {
+    matcher: t =>
+      t.includes('Your previous response used the full-rewrite form, which is unavailable for this version'),
+    name: 'System Prompt: Artifact Auto-Edit Full-Rewrite Unavailable Retry',
+    id: 'system-prompt-artifact-auto-edit-fullrewrite-unavailable-retry',
+    description:
+      'Retry instruction sent to the model composing an artifact auto-edit decision after it answered with the full-rewrite form on a version that does not support it: respond again with the patch or reply form.',
+  },
+
+  // Cross-session: concurrent live-comment-watch collision warning.
+  {
+    matcher: t =>
+      t.includes('Another live session of this same conversation is running') &&
+      t.includes('every comment will get a reply from both sessions'),
+    name: 'Data: Task Notification — Duplicate Comment-Watch Session',
+    id: 'data-task-notification-artifact-duplicate-comment-watch-session',
+    description:
+      'Task-notification <event> warning the model that another live session of the same conversation is also replying to artifact comments, so both will reply until one stops.',
+  },
+
+  // Skill loading section of the coordinator/velvet system prompt.
+  {
+    matcher: t =>
+      t.includes("Load a skill's full instructions inline (read-only") &&
+      t.includes('Execution happens in workers'),
+    name: 'System Prompt: Coordinator Skill-Loading Guidance',
+    id: 'system-prompt-coordinator-skill-loading-guidance',
+    description:
+      'Bullet in the coordinator system prompt explaining that loading a skill is read-only inline guidance, while running its recipe happens in dispatched workers.',
+  },
+
+  // Durable wake subscription still registering.
+  {
+    matcher: t =>
+      t.includes('not a wake subscription yet: its registration is in flight'),
+    name: 'Data: Wake Subscription Registration In Flight',
+    id: 'data-wake-subscription-registration-in-flight',
+    description:
+      'Status line shown while a durable wake subscription is still being registered in the background, telling the model to check status again shortly.',
+  },
+
+  // Self-hosted runner drain/stop-timeout sizing guidance.
+  {
+    matcher: t =>
+      t.includes('and the runner exits as soon as it holds no session') &&
+      t.includes('Size the stop timeout to at least'),
+    name: 'Data: Self-Hosted Runner Drain Timing Detail',
+    id: 'data-self-hosted-runner-drain-timing-detail',
+    description:
+      'Self-hosted runner reference text on drain behavior after a stop signal: session release timing, what happens if the supervisor stop timeout is too short, and how to size it.',
+  },
+
+  // Plugin marketplace headersHelper blocked by managed settings.
+  {
+    matcher: t =>
+      t.includes('fetches its archive through a marketplace-declared headersHelper command') &&
+      t.includes('disableCommandPluginSources'),
+    name: 'Tool Result: Plugin HeadersHelper Blocked By Managed Settings',
+    id: 'tool-result-plugin-headershelper-managed-settings-blocked',
+    description:
+      "Tool result when installing/updating a plugin whose archive fetch needs a marketplace-declared headersHelper command, but the organization's managed settings disable marketplace-declared commands.",
+  },
+
+  // Cross-session delivery notices — refused / dropped-and-do-not-resend.
+  {
+    matcher: t =>
+      t.startsWith('[Cross-session delivery notice]') &&
+      t.includes('refused') &&
+      t.includes('that session is not accepting cross-session messages'),
+    name: 'Data: Cross-Session Delivery Notice — Refused',
+    id: 'data-cross-session-delivery-notice-refused',
+    description:
+      'Cross-session delivery notice telling the model a message it sent to another session was refused because that session does not accept cross-session messages; do not resend.',
+  },
+  {
+    matcher: t =>
+      t.startsWith('[Cross-session delivery notice] Do not resend now') &&
+      t.includes('dropped at that session'),
+    name: 'Data: Cross-Session Delivery Notice — Dropped At Inbox',
+    id: 'data-cross-session-delivery-notice-dropped-at-inbox',
+    description:
+      "Cross-session delivery notice telling the model one or more of its messages were dropped at the recipient session's inbox and not delivered; treat as unsent, fold into one later message instead of retrying.",
+  },
+
+  // Self-hosted runner post-session hook drain wait.
+  {
+    matcher: t =>
+      t.startsWith('[runner] ') && t.includes('post-session hook(s) still running'),
+    name: 'Data: Self-Hosted Runner Post-Session Hooks Waiting',
+    id: 'data-self-hosted-runner-post-session-hooks-waiting',
+    description:
+      "Self-hosted runner status line shown while a runner's post-session hooks are still running and it is waiting for them within the stop-timeout budget.",
+  },
+
+  // Artifact comment monitor not carried across resume / conversation switch / duplicate session.
+  {
+    matcher: t =>
+      t.includes('a resumed session brings back at most its most recent Artifact') &&
+      t.includes('comment monitor'),
+    name: 'Data: Artifact Comment Monitor Not Resumed',
+    id: 'data-artifact-comment-monitor-not-resumed',
+    description:
+      "Notice that a resumed session brings back at most its most recent Artifact's comment monitor, and how to turn replies back on for others.",
+  },
+  {
+    matcher: t =>
+      t.includes("switching conversations inside a session doesn't bring comment monitors back"),
+    name: 'Data: Artifact Comment Monitor Not Carried On Conversation Switch',
+    id: 'data-artifact-comment-monitor-not-carried-conversation-switch',
+    description:
+      'Notice that switching conversations inside a session does not carry artifact comment monitors over, and how to turn replies back on.',
+  },
+  {
+    matcher: t =>
+      t.includes('in this conversation — another live session of it is running') &&
+      t.includes('If that session holds these monitors'),
+    name: 'Data: Artifact Comment Monitor Held By Other Live Session',
+    id: 'data-artifact-comment-monitor-held-by-other-session',
+    description:
+      'Notice that another live session of this conversation holds the comment monitors, so replies continue there and publishing again here would duplicate replies.',
+  },
+
+  // Skill/kind bullet-list line item (interpolated kind + description).
+  {
+    matcher: t => t.startsWith('${[$t.kind]} · ${.description}'),
+    name: 'Data: Kind-Labeled Description Line',
+    id: 'data-kind-labeled-description-line',
+    description:
+      'Template line rendering one entry as its localized kind label followed by its description, used in a listing UI presented to the model.',
+  },
+
+  // Artifact auto-edit failure notices (each names a distinct cause, artifact NOT changed).
+  {
+    matcher: t =>
+      t.startsWith('a requested automatic edit could not be applied to the artifact') &&
+      t.includes('NOT changed'),
+    name: 'Data: Artifact Auto-Edit Failed — Could Not Apply',
+    id: 'data-artifact-auto-edit-failed-could-not-apply',
+    description:
+      "Artifact auto-edit outcome notice: the requested automatic edit could not be applied to the artifact's current source, so nothing changed.",
+  },
+  {
+    matcher: t =>
+      t.startsWith('a requested automatic edit needed a full rewrite') &&
+      t.includes('unavailable for this version'),
+    name: 'Data: Artifact Auto-Edit Failed — Needs Full Rewrite',
+    id: 'data-artifact-auto-edit-failed-needs-full-rewrite',
+    description:
+      'Artifact auto-edit outcome notice: the requested edit needed a full rewrite, which is unavailable for this version of the artifact, so nothing changed.',
+  },
+
+  // Artifact verify diagnostics — captured-but-unreadable / zero-captured variants.
+  {
+    matcher: t =>
+      t.includes('and diagnostics WERE captured, but none could be read into this result'),
+    name: 'Data: Artifact Verify — Diagnostics Captured But Unreadable',
+    id: 'data-artifact-verify-diagnostics-captured-unreadable',
+    description:
+      'Artifact verify result: a viewer loaded the version and diagnostics were captured, but none could be read back (dropped or server-truncated) — treat the render as unobserved.',
+  },
+  {
+    matcher: t =>
+      t.includes('and zero diagnostics were captured: no console output, uncaught errors'),
+    name: 'Data: Artifact Verify — Zero Diagnostics Captured',
+    id: 'data-artifact-verify-zero-diagnostics-captured',
+    description:
+      'Artifact verify result: a viewer loaded the version and zero diagnostics were captured — a good signal but not proof of correctness, since capture is cooperative and bounded.',
+  },
+
+  // Agent tool spawn-limit denial counter description.
+  {
+    matcher: t =>
+      t.startsWith('Agent tool calls turned down because one of these limits was reached'),
+    name: 'Data: Agent Spawn Limit Denials Description',
+    id: 'data-agent-spawn-limit-denials-description',
+    description:
+      'Metric/field description for Agent tool calls turned down due to a spawn limit, noting depth_limit is rare since a subagent at the nesting cap is usually not offered the tool at all.',
+  },
+
+  // Artifact live-watch auto-reply pause lifted after reconnect.
+  {
+    matcher: t =>
+      t.startsWith('Auto-replies resumed on ${(.url)} — the watch was still connecting'),
+    name: 'Tool Result: Artifact Watch Auto-Replies Resumed After Connect',
+    id: 'tool-result-artifact-watch-auto-replies-resumed-after-connect',
+    description:
+      "Tool result confirming an artifact's auto-reply pause lifted once its still-connecting live watch finished opening, and what comments get picked up.",
+  },
+
+  // Plugin marketplace/plugin-entry headersHelper command declarations.
+  {
+    matcher: t =>
+      t.startsWith('Command that prints a JSON object of HTTP headers (e.g. a short-lived auth token). Its output overrides `headers`') &&
+      t.includes('inherited by same-origin archive downloads'),
+    name: 'Tool Parameter: Marketplace HeadersHelper Command',
+    id: 'tool-parameter-marketplace-headershelper-command',
+    description:
+      "A marketplace declaration's `headersHelper` parameter: a command printing JSON HTTP headers for archive downloads, run from a fixed directory and re-run on refresh.",
+  },
+  {
+    matcher: t =>
+      t.startsWith("Command that prints a JSON object of HTTP headers for downloading this entry's `archive` source. Runs only when a user explicitly installs"),
+    name: 'Tool Parameter: Settings-Declared Plugin Entry HeadersHelper',
+    id: 'tool-parameter-plugin-entry-headershelper-settings',
+    description:
+      "A settings-file plugin entry's `headersHelper` parameter: a command printing JSON HTTP headers for this entry's archive, exempt from strict: false since settings files have no manifest fields to inline.",
+  },
+  {
+    matcher: t =>
+      t.startsWith("Command that prints a JSON object of HTTP headers for fetching this plugin's archive (e.g. a short-lived auth token); overrides"),
+    name: 'Tool Parameter: Plugin Manifest HeadersHelper',
+    id: 'tool-parameter-plugin-manifest-headershelper',
+    description:
+      "A catalog plugin entry's `headersHelper` parameter: a command printing JSON HTTP headers for the plugin's archive, requiring strict: false with an inlined manifest so consent is informed before it runs.",
+  },
+
+  // Artifact automatic-edit outcome notices (failure/timeout cases)
+  {
+    matcher: t => t.includes('composing a requested automatic edit ran past its time limit and was abandoned'),
+    name: 'Artifact Auto-Edit Timed Out',
+    id: 'data-task-notification-artifact-auto-edit-timed-out',
+    description: 'Task-notification event telling the model a requested automatic artifact edit was abandoned after exceeding its time limit and nothing changed.',
+  },
+
+  // Plugin marketplace / headersHelper manifest fields
+  {
+    matcher: t => t.startsWith('Custom HTTP headers for fetching this plugin\'s archive; overrides the marketplace\'s'),
+    name: 'Tool Parameter: Plugin Archive Headers Override',
+    id: 'tool-parameter-plugin-headers-override-marketplace',
+    description: 'Manifest field description for a plugin entry\'s custom HTTP headers used when fetching its archive, overriding the marketplace-level headers.',
+  },
+
+  // Subagent spawn-depth telemetry field descriptions
+  {
+    matcher: t => t.startsWith('Deepest spawn: 1 = started by the main thread, 2 = by a depth-1 subagent.'),
+    name: 'Data: Deepest Spawn Depth Metric',
+    id: 'data-spawn-metric-deepest-spawn-depth',
+    description: 'Metric-field description defining the deepest subagent spawn depth reached, where 1 is the main thread and each further level increments by one.',
+  },
+
+  // Durable wake subscription arming notice
+  {
+    matcher: t => t.startsWith('Durable wake subscription: arming in the background — not registered yet'),
+    name: 'Data: Durable Wake Subscription Arming',
+    id: 'data-artifact-durable-wake-subscription-arming',
+    description: 'Status line telling the model a durable wake subscription is still arming in the background and is not yet a real subscription until `status` lists it.',
+  },
+
+  // stream-json stdin protocol description
+  {
+    matcher: t => t.startsWith('Everything a client may write to the CLI\'s input stream (stdin in stream-json input mode)'),
+    name: 'Data: Stream-JSON Stdin Message Protocol',
+    id: 'data-stream-json-stdin-message-protocol',
+    description: 'Protocol reference describing every StdinMessage type a client may write to the CLI\'s stream-json stdin, including initialize re-application and hook-replacement semantics.',
+  },
+
+  // MCP server detail tool description
+  {
+    matcher: t => t.startsWith('Get details about an MCP server. Unapproved .mcp.json servers are shown as'),
+    name: 'Tool Description: MCP Server Details',
+    id: 'tool-description-mcp-server-details',
+    description: 'Tool description for getting details about a single MCP server, noting unapproved .mcp.json servers show as pending approval and are not connected to.',
+  },
+
+  // Marketplace entry headers field (short form)
+  {
+    matcher: t => t.startsWith('HTTP headers sent when downloading this entry\'s `archive` source.'),
+    name: 'Tool Parameter: Marketplace Entry Archive Headers',
+    id: 'tool-parameter-marketplace-entry-archive-headers',
+    description: 'Manifest field description for static HTTP headers sent when downloading a marketplace entry\'s archive source.',
+  },
+
+  // Artifact auto-edit refusal reasons (daily limit / full-rewrite / no-match)
+  {
+    matcher: t => t.includes('I could not apply the requested edit right now: a daily publish limit was reached'),
+    name: 'Artifact Auto-Edit Refused: Daily Publish Limit',
+    id: 'data-artifact-auto-edit-refused-daily-limit',
+    description: 'Reply-to-commenter text explaining an automatic artifact edit could not be applied because the daily publish limit was reached, with a retry-after-midnight-UTC hint.',
+  },
+  {
+    matcher: t => t.includes('I could not apply the requested edit: it would mean rewriting the whole artifact'),
+    name: 'Artifact Auto-Edit Refused: Full Rewrite Unsupported',
+    id: 'data-artifact-auto-edit-refused-full-rewrite',
+    description: 'Reply-to-commenter text explaining an automatic artifact edit was refused because it would require a full rewrite, which automatic edits cannot perform for this version.',
+  },
+  {
+    matcher: t => t.includes('I could not apply the requested edit: my change did not map cleanly onto the artifact'),
+    name: 'Artifact Auto-Edit Refused: Change Did Not Map',
+    id: 'data-artifact-auto-edit-refused-no-clean-map',
+    description: 'Reply-to-commenter text explaining an automatic artifact edit failed because the change did not map cleanly onto the artifact\'s current source.',
+  },
+
+  // Live/durable subscription arming notice (long form with connected wording)
+  {
+    matcher: t => t.startsWith('Live subscription: arming in the background — not connected yet'),
+    name: 'Data: Live Subscription Arming',
+    id: 'data-artifact-live-subscription-arming',
+    description: 'Status line telling the model a live artifact subscription is still arming in the background and is not yet a watch until `status` shows it connected.',
+  },
+
+  // Subagent task nesting-depth field description
+  {
+    matcher: t => t.startsWith('Nesting depth of a spawned subagent (local_agent) task: 1 for a top-level spawn'),
+    name: 'Data: Subagent Task Nesting Depth Field',
+    id: 'data-subagent-task-nesting-depth-field',
+    description: 'Field description defining a spawned subagent task\'s nesting depth, 1 for a top-level spawn and N+1 when spawned from inside a depth-N agent.',
+  },
+
+  // Cloud session start failure with upload fallback failure
+  {
+    matcher: t => t.startsWith('No cloud session was started:') && t.includes('the working tree could not be uploaded instead'),
+    name: 'Data: Cloud Session Start And Upload Both Failed',
+    id: 'data-cloud-session-start-and-upload-failed',
+    description: 'Error text reporting that starting a cloud session failed and the fallback of uploading the working tree instead also failed, with a retry or GitHub-start suggestion.',
+  },
+
+  // Artifact runtime diagnostics unreadable (24h / owner-only case)
+  {
+    matcher: t => t.startsWith('No runtime diagnostics readable for') && t.includes('no viewer has loaded this version in the last 24h'),
+    name: 'Tool Result: No Runtime Diagnostics Readable',
+    id: 'tool-result-artifact-no-diagnostics-readable-24h',
+    description: 'Verify-action result explaining no runtime diagnostics are readable because no viewer loaded the version in 24h or diagnostics are owner-only, and this is not evidence of a clean render.',
+  },
+
+  // Non-interactive terminal command display notice
+  {
+    matcher: t => t.startsWith('Not an interactive terminal, so the command was only displayed, not accepted.'),
+    name: 'Tool Result: Command Not Accepted, Non-Interactive Terminal',
+    id: 'tool-result-command-not-accepted-non-interactive',
+    description: 'Result explaining a command was only displayed rather than run because the session is not an interactive terminal, and must be run manually outside Claude Code.',
+  },
+
+  // Artifact ownership confirmation failure
+  {
+    matcher: t => t.startsWith('Ownership of this artifact could not be confirmed right now, and diagnostics are owner-only.'),
+    name: 'Tool Result: Artifact Ownership Unconfirmed',
+    id: 'tool-result-artifact-ownership-unconfirmed',
+    description: 'Verify-action result explaining artifact ownership could not be confirmed right now, so owner-only diagnostics cannot be shown; retry later.',
+  },
+
+  // Diff-surface content-provenance withholding note
+  {
+    matcher: t => t.startsWith('Paths whose hunk content was withheld by the diff surface\'s content-provenance gate'),
+    name: 'Data: Diff Hunk Content Withheld By Provenance Gate',
+    id: 'data-diff-hunk-content-withheld-provenance-gate',
+    description: 'Note listing paths whose diff hunk content was withheld by the content-provenance gate\'s read-permission and file-identity checks, while stats remain visible.',
+  },
+
+  // Plugin marketplace headersHelper warnings (sha256 pin / strict:false)
+  {
+    matcher: t => t.includes('fetches its archive with a headersHelper but sets no sha256 pin'),
+    name: 'Plugin Warning: HeadersHelper Missing sha256 Pin',
+    id: 'data-plugin-headershelper-missing-sha256-pin',
+    description: 'Warning for a plugin marketplace entry that fetches its archive via headersHelper without a sha256 pin, suggesting pinning the digest for review integrity.',
+  },
+  {
+    matcher: t => t.includes('sets headersHelper but is not "strict": false'),
+    name: 'Plugin Warning: HeadersHelper Requires Strict False',
+    id: 'data-plugin-headershelper-requires-strict-false',
+    description: 'Warning for a plugin marketplace entry using headersHelper without strict:false, explaining Claude Code refuses to run the helper unless the full manifest is inlined for review.',
+  },
+
+  // Artifact publish confirmation line (interpolated fields)
+  {
+    matcher: t => t.startsWith('Published ${.path} at ${.url}'),
+    name: 'Tool Result: Artifact Published Summary Line',
+    id: 'tool-result-artifact-published-summary-line',
+    description: 'Publish-result summary line reporting the artifact\'s path and URL along with trailing status qualifiers.',
+  },
+
+  // Reconnect cancelled due to account change (duplicate strings, likely two UI surfaces)
+  {
+    matcher: t => t.startsWith('Reconnect cancelled: the account changed while connecting. Choose Reconnect again.'),
+    name: 'MCP Reconnect Cancelled: Account Changed',
+    id: 'slash-command-mcp-reconnect-cancelled-account-changed',
+    description: 'Message shown when an MCP OAuth reconnect was cancelled because the active account changed mid-connection, prompting the user to choose Reconnect again.',
+  },
+
+  // Verify-result state that could not be recognized
+  {
+    matcher: t => t.startsWith('Recorded verify result for') && t.includes('in an unrecognized state'),
+    name: 'Tool Result: Verify Result Unrecognized State',
+    id: 'tool-result-artifact-verify-result-unrecognized-state',
+    description: 'Verify-action result reporting the recorded diagnostics state for an artifact version was unrecognized, prompting a fresh verify call, and noting this is not evidence either way.',
+  },
+
+  // Artifact comment auto-reply resume consent prompt
+  {
+    matcher: t => t.startsWith('Resuming lets Claude post unattended public replies again'),
+    name: 'Tool Result: Resume Auto-Replies Consent Prompt',
+    id: 'tool-result-artifact-resume-auto-replies-consent',
+    description: 'Consent prompt explaining that resuming lets Claude post unattended public replies again to comments, including any sent since the interrupt, and to deny if unwanted.',
+  },
+
+  // Artifact room_send topic parameter description
+  {
+    matcher: t => t.startsWith('room_send only: the event topic — lowercase, starts with a letter'),
+    name: 'Tool Parameter: Room Send Topic',
+    id: 'tool-parameter-artifact-room-send-topic',
+    description: 'Parameter description for the room_send topic string: lowercase, starts with a letter, then letters/digits/"_-.", at most 48 characters, matched by claude.room.on in the page.',
+  },
+
+    // Marketplace plugin headersHelper family — skip/warn/consent messages.
+    {
+      matcher: t =>
+        t.startsWith('Skipped — "${') &&
+        t.includes('fetches its archive through a headersHelper, which only runs when you update it yourself'),
+      name: 'Slash Command: Plugin install skipped (headersHelper, update-only)',
+      id: 'slash-command-plugin-install-skipped-headershelper-update-only',
+      description:
+        'Notice shown during a marketplace refresh that a plugin using headersHelper was skipped because that command only runs on an explicit user-initiated update.',
+    },
+    {
+      matcher: t =>
+        t.includes('Spawns by agent type.'),
+      name: 'Data: Spawns By Agent Type Metric Help',
+      id: 'data-spawns-by-agent-type-metric-help',
+      description: 'Help text for an insights/metrics field breaking down subagent spawns by agent type.',
+    },
+    {
+      matcher: t =>
+        t.includes('Spawns by the run_in_background value the model passed'),
+      name: 'Data: Spawns By run_in_background Value Metric Help',
+      id: 'data-spawns-by-run-in-background-value-metric-help',
+      description:
+        'Help text for a metrics field bucketing subagent spawns by the run_in_background value the model passed, noting it counts as unset when the parameter was not offered.',
+    },
+    {
+      matcher: t =>
+        t.includes('Spawns made from inside another subagent (depth > 1).'),
+      name: 'Data: Nested Subagent Spawns Metric Help',
+      id: 'data-nested-subagent-spawns-metric-help',
+      description: 'Help text for a metrics field counting subagent spawns made from inside another subagent, i.e. nesting depth greater than 1.',
+    },
+    {
+      matcher: t =>
+        t.startsWith('Spawns that started in the background after defaults and session settings'),
+      name: 'Data: Spawns Started Backgrounded Metric Help',
+      id: 'data-spawns-started-backgrounded-metric-help',
+      description:
+        'Help text for a metrics field counting spawns that started in the background per tengu_agent_tool_selected.is_async, versus calls that blocked the spawning tool call.',
+    },
+    {
+      matcher: t =>
+        t.startsWith('static file server or artifact repository (S3, GitLab, nginx)'),
+      name: 'Tool Description: Marketplace URL Source (static host, headers auth)',
+      id: 'tool-description-marketplace-url-source-static-host-headers-auth',
+      description:
+        'Marketplace url-source field description covering a plain static host with no git or npm client, authenticated via headers or headersHelper, overlaid with the enclosing marketplace headers for same-origin archives.',
+    },
+    {
+      matcher: t =>
+        t.startsWith('Stopped before finishing: parent = by another agent through TaskStop'),
+      name: 'Data: Subagent Stop Reason Field Description',
+      id: 'data-subagent-stop-reason-field-description',
+      description:
+        'Field description enumerating why a subagent task stopped before finishing: parent-initiated TaskStop, system-initiated halts, or any other user-attributed stop.',
+    },
+    {
+      matcher: t =>
+        t.startsWith("Subagent has finished and is handing back control to the main agent."),
+      name: 'System Prompt: Subagent Handback Review (generic)',
+      id: 'system-prompt-subagent-handback-review-generic',
+      description:
+        'Generic instruction told to the main agent when a subagent hands back control, directing it to review the subagent work for anything dangerous under the block rules.',
+    },
+    {
+      matcher: t =>
+        t.startsWith('Subagents actually started (one tengu_agent_tool_selected each)'),
+      name: 'Data: Subagents Actually Started Metric Help',
+      id: 'data-subagents-actually-started-metric-help',
+      description: 'Help text for a metrics field counting subagents that actually started, excluding refused or failed launches.',
+    },
+    {
+      matcher: t =>
+        t.startsWith('That held message was NOT delivered: this session\'s inbox guard'),
+      name: 'Tool Result: SendMessage Held Message Dropped (inbox guard)',
+      id: 'tool-result-sendmessage-held-message-dropped-inbox-guard',
+      description:
+        "Notice that a held cross-session message was dropped because the recipient's inbox guard (rate limit or queue capacity) had no room when the user approved sending it.",
+    },
+    {
+      matcher: t => t.startsWith('The /insights report is generated only when the command is invoked directly.'),
+      name: 'System Prompt: Insights Report Direct-Invocation Only',
+      id: 'system-prompt-insights-report-direct-invocation-only',
+      description: 'Note clarifying the /insights report is generated only on direct command invocation, not as a side effect of other flows.',
+    },
+    {
+      matcher: t =>
+        t.startsWith('The branch a commit landed on (from the commit summary line git prints per commit)'),
+      name: 'Data: Git Event Branch Field Description',
+      id: 'data-git-event-branch-field-description',
+      description:
+        'Field description for a git commit/push event\'s branch attribution: parsed from git\'s per-commit or per-ref output, best-effort and absent when uncertain.',
+    },
+    {
+      matcher: t =>
+        t.startsWith('The command contains non-ASCII, hidden or control characters'),
+      name: 'System Prompt: Command Contains Hidden Characters Warning',
+      id: 'system-prompt-command-contains-hidden-characters-warning',
+      description: 'Warning shown when a command about to run contains non-ASCII, hidden, or control characters rendered as \\u{...} escapes, asking the model to confirm they were expected.',
+    },
+    {
+      matcher: t =>
+        t.startsWith('The island open-tag ending ${') &&
+        t.includes('real island element(s) exist'),
+      name: 'Tool Result: Artifact Island Open-Tag Count Mismatch',
+      id: 'tool-result-artifact-island-open-tag-count-mismatch',
+      description:
+        "Diagnostic when the count of an artifact page's island open-tag-ending sequence doesn't match the number of real island elements found by mechanical extraction, with guidance to keep the id attribute last and escape stray occurrences of the sequence.",
+    },
+    // 2.1.219 fuzzy-carryover restores (established ids per brief).
+    {
+      matcher: t =>
+        t.startsWith('The live subscription for ${') &&
+        t.includes('will not hear when it is republished'),
+      name: 'Data: Artifact Live-Subscription Arm-Failed Event',
+      id: 'data-task-notification-artifact-live-subscription-arm-failed',
+      description:
+        'Task-notification <event> telling the model a live artifact watch did not arm and this session is not watching it.',
+    },
+    {
+      matcher: t =>
+        t.startsWith('The permission check for this publish failed before the room disclosure could be shown'),
+      name: 'Tool Result: Artifact Publish Blocked (permission check failed pre-room-disclosure)',
+      id: 'tool-result-artifact-publish-blocked-permission-check-failed-pre-room-disclosure',
+      description:
+        'Failure result when the permission check for an artifact publish failed before the room-join disclosure could be shown, so nothing was published.',
+    },
+    {
+      matcher: t =>
+        t.startsWith('The permission check for this room_send failed before its approval could be shown'),
+      name: 'Tool Result: Artifact Room Send Blocked (permission check failed pre-approval)',
+      id: 'tool-result-artifact-room-send-blocked-permission-check-failed-pre-approval',
+      description:
+        'Failure result when the permission check for a room_send call failed before its approval prompt could be shown, so nothing was sent.',
+    },
+    {
+      matcher: t =>
+        t.startsWith('The SDK host reconnected before its prompt hook answered'),
+      name: 'System Prompt: SDK Host Reconnected Before Prompt Hook Answered',
+      id: 'system-prompt-sdk-host-reconnected-before-prompt-hook-answered',
+      description: 'Notice that the SDK host reconnected before its prompt hook answered, so the prompt was not submitted and must be sent again.',
+    },
+    {
+      matcher: t =>
+        t.startsWith('This install would run a headersHelper command for "${') &&
+        t.includes('that was not shown to you first'),
+      name: 'Tool Result: Plugin Install headersHelper Not Shown First',
+      id: 'tool-result-plugin-install-headershelper-not-shown-first',
+      description:
+        'Refusal when a plugin install would run a headersHelper command that was not shown to the user first, requiring a retry so the command can be reviewed before it runs.',
+    },
+    {
+      matcher: t =>
+        t.includes('the page is published against an unobserved interface'),
+      name: 'Artifact Unobserved Connector Warning',
+      id: 'data-artifact-unobserved-connector-warning',
+      description:
+        'Warning appended to the artifact-read/publish tool result telling the model a declared connector had no observed call.',
+    },
+    {
+      matcher: t =>
+        t.startsWith('To allow direct artifact reads here, add ${') &&
+        t.includes('Network access → Custom → Allowed domains'),
+      name: 'Tool Result: Artifact Content Egress Blocked',
+      id: 'tool-result-artifact-content-egress-blocked',
+      description:
+        'Allowlist remediation appended to an artifact-content fetch error when the environment blocked the frame host.',
+    },
+    {
+      matcher: t =>
+        t.startsWith('True when the skill instructions were loaded read-only'),
+      name: 'Data: Skill Loaded Read-Only Field Description',
+      id: 'data-skill-loaded-read-only-field-description',
+      description: 'Field description for a boolean marking that a skill was loaded read-only, with nothing executed.',
+    },
+    {
+      matcher: t =>
+        t.startsWith('Whether the `hooks` this initialize carried were registered:'),
+      name: 'Data: Initialize Hooks Registered Field Description',
+      id: 'data-initialize-hooks-registered-field-description',
+      description:
+        "Field description for the stream-json protocol's hooks_applied flag on an initialize response: whether the hooks it carried were registered, replaced an earlier set, or were ignored as a joining client's.",
+    },
+    {
+      matcher: t =>
+        t.startsWith('Whether the task was registered in the background (true) or in the foreground'),
+      name: 'Data: Task Registered In Background Field Description',
+      id: 'data-task-registered-in-background-field-description',
+      description:
+        'Field description for whether a task was registered in the background versus foreground-blocking, noting resumed subagents are always background and a later move arrives as a task_updated patch.',
+    },
+    {
+      matcher: t =>
+        t.startsWith("Which conventions the prompt's editing keys follow:"),
+      name: 'Tool Parameter: Prompt Editing Key Convention',
+      id: 'tool-parameter-prompt-editing-key-convention',
+      description:
+        'Parameter description for the input-editing key-binding convention setting, choosing between readline-style (Ctrl+W to previous whitespace) and Claude Code\'s classic behavior (Ctrl+W to previous word).',
+    },
+
   // 2.1.233 — the OTHER branch of four conditionals whose first branch is a
   // catalogued slot literal. Both branches share the phrase the slot-literal
   // allowlist is keyed on, so both capture and both want the same name; the
