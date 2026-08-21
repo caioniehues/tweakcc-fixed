@@ -268,7 +268,8 @@ function cmdCheck() {
     const pieb = path.join(os.tmpdir(), 'tweakcc-driver-pieb.json');
     const v = ccVersion(ccBinary()) || repoPromptsVersions().slice(-1)[0];
     let out = '', code = 0;
-    try { execSync(`git show upstream/main:data/prompts/prompts-${v}.json > ${pieb} 2>/dev/null`, { cwd: REPO }); } catch { /* no upstream ref; audit skips */ }
+    // Day-zero upstream publishes to a per-version branch before main.
+    try { execSync(`git show upstream/prompts/${v}:data/prompts/prompts-${v}.json > ${pieb} 2>/dev/null || git show upstream/main:data/prompts/prompts-${v}.json > ${pieb} 2>/dev/null`, { cwd: REPO }); } catch { /* no upstream ref; audit skips */ }
     try { out = execSync(`node tools/auditMisbinds.mjs data/prompts/prompts-${v}.json ${pieb} 2>&1`, { cwd: REPO, encoding: 'utf8' }); }
     catch (e) { out = (e.stdout || '') + (e.stderr || ''); code = e.status || 1; }
     if (code === 0 && /audit: 0/.test(out)) console.log(C.ok('mis-bind audit: 0'));
@@ -321,11 +322,17 @@ function cmdCheck() {
   console.log(C.head('Every patch vs. pristine cli.js (bun parse oracle)'));
   {
     let out = '', code = 0;
-    try { out = execSync('pnpm test:pristine 2>&1', { cwd: REPO, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }); }
+    try { out = execSync('(command -v pnpm >/dev/null && pnpm test:pristine || npx -y pnpm@latest test:pristine) 2>&1', { cwd: REPO, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }); }
     catch (e) { out = (e.stdout || '') + (e.stderr || ''); code = e.status || 1; }
     const skipped = /\d+ skipped/.test(out) && !/Tests\s+\d+ passed/.test(out);
     const passed = out.match(/Tests\s+(\d+) passed/);
-    if (code !== 0) fail(`pristine patch sweep: ${out.split('\n').filter((l) => /FAIL|Error/.test(l)).slice(0, 3).join(' | ').slice(0, 240)}`);
+    // vitest can exit 1 on a worker-RPC "Timeout calling onTaskUpdate" even
+    // when every test passed (seen on the 60s+ single-file sweep). Judge by
+    // the test counts, not the exit code — but only when zero tests failed.
+    const allPassed = code !== 0 && /Tests\s+(\d+) passed/.test(out) &&
+      !/\d+ failed/.test(out) && /\[vitest-worker\]|onTaskUpdate/.test(out);
+    if (allPassed) console.log(C.ok(`pristine patch sweep: all tests passed (vitest worker-RPC timeout noise ignored)`));
+    else if (code !== 0) fail(`pristine patch sweep: ${out.split('\n').filter((l) => /FAIL|Error/.test(l)).slice(0, 3).join(' | ').slice(0, 240)}`);
     else if (skipped) fail('pristine patch sweep SKIPPED — no pristine cli.js or no bun; this gate silently passes when it cannot run');
     else console.log(C.ok(`${passed ? passed[1] : '?'} patches spliced and parsed clean`));
   }
@@ -343,13 +350,22 @@ function cmdCheck() {
     const ours = path.join(REPO, 'data/prompts', `prompts-${v}.json`);
     let reference = '';
     try {
-      // upstream lags; take the newest reference catalogue at or below ours
-      const tags = execSync('git ls-tree --name-only upstream/main data/prompts/', { cwd: REPO, encoding: 'utf8' })
-        .split('\n').map((l) => l.match(/prompts-(\d+\.\d+\.\d+)\.json$/)).filter(Boolean).map((m) => m[1]);
-      const pick = tags.filter((t) => cmpVer(t, v) <= 0).sort(cmpVer).slice(-1)[0] || tags.sort(cmpVer).slice(-1)[0];
-      if (pick) {
-        reference = path.join(os.tmpdir(), `reference-prompts-${pick}.json`);
-        fs.writeFileSync(reference, execSync(`git show upstream/main:data/prompts/prompts-${pick}.json`, { cwd: REPO, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 }));
+      // Day-zero upstream publishes to a per-version branch before main.
+      let picked = '';
+      try {
+        picked = execSync(`git show upstream/prompts/${v}:data/prompts/prompts-${v}.json`, { cwd: REPO, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+        reference = path.join(os.tmpdir(), `reference-prompts-${v}.json`);
+        fs.writeFileSync(reference, picked);
+      } catch { /* fall through to main below */ }
+      if (!reference) {
+        // upstream lags; take the newest reference catalogue at or below ours
+        const tags = execSync('git ls-tree --name-only upstream/main data/prompts/', { cwd: REPO, encoding: 'utf8' })
+          .split('\n').map((l) => l.match(/prompts-(\d+\.\d+\.\d+)\.json$/)).filter(Boolean).map((m) => m[1]);
+        const pick = tags.filter((t) => cmpVer(t, v) <= 0).sort(cmpVer).slice(-1)[0] || tags.sort(cmpVer).slice(-1)[0];
+        if (pick) {
+          reference = path.join(os.tmpdir(), `reference-prompts-${pick}.json`);
+          fs.writeFileSync(reference, execSync(`git show upstream/main:data/prompts/prompts-${pick}.json`, { cwd: REPO, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 }));
+        }
       }
     } catch { /* no upstream remote fetched — reported below */ }
     if (!fs.existsSync(ORIG_JS) || !fs.existsSync(ours) || !reference) {
@@ -379,7 +395,10 @@ function cmdCheck() {
   // So the whole question reduces to "is CC's Bun public yet", which changes
   // only at a version bump. Report the stamp and shout when it moves, rather
   // than leaving a note in a file nobody re-reads.
-  const KNOWN_BUN_BUILD = 'v1.4.0 (eb835313a)';
+  // 2.1.238: v1.4.0 (fdb5e06cc); npm now serves bun@1.4.0 — the public build's
+  // revision has not been matched against this stamp yet, so bytecode regen
+  // stays unexplored (see run summary for CC 2.1.238).
+  const KNOWN_BUN_BUILD = 'v1.4.0 (fdb5e06cc)';
   console.log(C.head('Bun build stamp (bytecode-regeneration tripwire)'));
   {
     const bin = ccBinary();
