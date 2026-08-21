@@ -106,6 +106,20 @@ export const writeOutputStyleTurnReminder = (
       );
       return threadCustomStyleTurnReminder(oldFile);
     }
+    // 2.1.238+: Anthropic promoted the renderer half — no table lookup, the
+    // reminder now renders for every style via a sanitizer call
+    // `${fn(e.style)} output style is active.`. Only the frontmatter
+    // turn-reminder threading is still ours.
+    if (
+      /output_style:\(([$\w]+)\)=>\{if\(typeof \1\.style!=="string"/.test(
+        oldFile
+      )
+    ) {
+      console.log(
+        'patch: outputStyleTurnReminder: renderer promoted in this CC build — threading only'
+      );
+      return threadCustomStyleTurnReminder(oldFile);
+    }
     console.error(
       'patch: outputStyleTurnReminder: failed to find the output-style reminder renderer'
     );

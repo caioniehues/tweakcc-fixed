@@ -473,6 +473,34 @@ const OUTPUT_STYLE_INJECTION: ReminderInjection = {
   },
   defaultBody: `{{style_name}} output style is active. {{turn_reminder}}`,
   apply(content, body, isSuppressed) {
+    // Method 1 (2.1.238+): no style-map lookup — the name renders via a
+    // sanitizer call `${fn(h.style)}` behind typeof/empty/length guards.
+    const newShape =
+      /output_style:\(([$\w]+)\)=>\{(if\(typeof \1\.style!=="string"[\s\S]{0,400}?\),\[\];)return ([$\w]+)\(\[([$\w]+)\(\{content:`\$\{([$\w]+)\(\1\.style\)\} output style is active\. \$\{\1\.turnReminder\?\?"Remember to follow the specific guidelines for this style\."\}`,isMeta:!0\}\)\]\)\}/;
+    const nm = content.match(newShape);
+    if (nm && nm.index !== undefined) {
+      const [fullMatch, hParam, guards, o5Name, j6Name, sanitizeFn] = nm;
+      const bodyForThisBuild = body
+        .replace(/\$\{_\.name\}/g, `\${${sanitizeFn}(${hParam}.style)}`)
+        .replace(/\$\{H\.turnReminder/g, `\${${hParam}.turnReminder`);
+      const replacement = isSuppressed
+        ? `output_style:(${hParam})=>{return [];}`
+        : `output_style:(${hParam})=>{${guards}` +
+          `return ${o5Name}([${j6Name}({content:\`${bodyForThisBuild}\`,isMeta:!0})])}`;
+      const newContent =
+        content.slice(0, nm.index) +
+        replacement +
+        content.slice(nm.index + fullMatch.length);
+      showDiff(
+        content,
+        newContent,
+        replacement,
+        nm.index,
+        nm.index + fullMatch.length
+      );
+      return newContent;
+    }
+    // Method 2 (pre-2.1.238): style-map lookup `let s=map[h.style]`.
     const pattern =
       /output_style:\(([$\w]+)\)=>\{let ([$\w]+)=([$\w]+)\[\1\.style\];if\(!\2\)return\[\];return ([$\w]+)\(\[([$\w]+)\(\{content:`\$\{\2\.name\} output style is active\. \$\{\1\.turnReminder\?\?"Remember to follow the specific guidelines for this style\."\}`,isMeta:!0\}\)\]\)\}/;
     const match = content.match(pattern);
@@ -1571,6 +1599,42 @@ const MCP_PER_SERVER_ROUTER_INJECTION: ReminderInjection = {
     'This file is a marker that enables per-MCP-server overrides. Edit per-server content in mcp-<server-name>.md alongside this file. Leave this file with content (any content) to enable routing; empty it to disable.',
   apply(content, _body, isSuppressed) {
     if (isSuppressed) return content;
+    // Method 1 (2.1.238+): the loop also mirrors raw instructions into a second
+    // map (`, c.set(f.name, f.instructions);`). Route both through the override
+    // so a dropped/replaced server stays consistent for both consumers.
+    const newShape =
+      /for\(let ([$\w]+) of ([$\w]+)\)if\(\1\.instructions\)([$\w]+)\.set\(\1\.name,`## \$\{\1\.name\}\n\$\{\1\.instructions\}`\),([$\w]+)\.set\(\1\.name,\1\.instructions\);/;
+    const nm = content.match(newShape);
+    if (nm && nm.index !== undefined) {
+      const [fullMatch, jVar, zVar, mapVar, rawMapVar] = nm;
+      const replacement =
+        `function __tweakccMcpOverride(_n,_d){try{` +
+        `let _f=require('fs'),_p=require('os').homedir()+'/.tweakcc/system-reminders/mcp-'+_n+'.md';` +
+        `let _r=_f.readFileSync(_p,'utf8');` +
+        `let _m=_r.match(/-->\\s*([\\s\\S]*?)\\s*$/);` +
+        `if(!_m)return _d;` +
+        `let _b=_m[1].trim();` +
+        `if(_b==='')return null;` +
+        `return _b.replace(/\\{\\{server_instructions\\}\\}/g,_d||'')` +
+        `}catch{return _d}}` +
+        `for(let ${jVar} of ${zVar}){` +
+        `let _c=__tweakccMcpOverride(${jVar}.name,${jVar}.instructions);` +
+        `if(_c)${mapVar}.set(${jVar}.name,\`## \${${jVar}.name}\n\${_c}\`),${rawMapVar}.set(${jVar}.name,_c)` +
+        `}`;
+      const newContent =
+        content.slice(0, nm.index) +
+        replacement +
+        content.slice(nm.index + fullMatch.length);
+      showDiff(
+        content,
+        newContent,
+        replacement,
+        nm.index,
+        nm.index + fullMatch.length
+      );
+      return newContent;
+    }
+    // Method 2 (pre-2.1.238): single-map assembly loop.
     const pattern =
       /for\(let ([$\w]+) of ([$\w]+)\)if\(\1\.instructions\)([$\w]+)\.set\(\1\.name,`## \$\{\1\.name\}\n\$\{\1\.instructions\}`\);/;
     const match = content.match(pattern);

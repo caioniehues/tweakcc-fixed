@@ -751,13 +751,46 @@ export const writePrintToolsFilter = (
     ? JSON.stringify(defaultToolset)
     : 'undefined';
 
-  // Anchor on the USE site, not the declaration. `tools:X,refreshTools:()=>F(G())`
-  // is a unique code shape; the declaration is not, so the old form matched
-  // `let X=F(S)` and demanded the use within 2500 chars. CC 2.1.235 pushed them
-  // 2,672 apart (MCP prewait code landed between) and the sub-patch silently
-  // stopped matching. A declaration dominates its use, so once X and F are
-  // pinned by the use site, the nearest preceding `let X=F(S)` is correct at any
-  // distance and no window needs maintaining.
+  // Method 1 (2.1.238+): the print path no longer passes an inline
+  // `refreshTools:()=>F(G())` arrow. It declares a named thunk
+  // `NAME=()=>COMPUTE(GETSTATE())` (right before the MCP refresh thunk that
+  // reads `.mcp.clients`) and passes `refreshTools:NAME`. Downstream, the query
+  // loop reads `refreshTools?.()??tools`, so filtering inside the thunk covers
+  // both the initial list and every refresh — one wrap, no decl hunt.
+  const thunkPattern =
+    /([$\w]+)=\(\)=>([$\w]+)\(([$\w]+)\(\)\),(?=[$\w]+=\(\)=>[$\w]+\([$\w]+\(\)\.mcp\.clients[\s\S]{0,400}?refreshTools:\1)/;
+  const thunkMatch = oldFile.match(thunkPattern);
+  if (thunkMatch && thunkMatch.index !== undefined) {
+    const [fullThunk, thunkName, computeFn2, getState] = thunkMatch;
+    const wrapped =
+      `${thunkName}=()=>{const __tpts=${toolsetsJSON},` +
+      `__tptf=(t,s)=>{const n=s.toolset??${fallback};` +
+      `globalThis.__tweakcc_toolset={name:n,tools:__tpts[n]};` +
+      `if(__tpts.hasOwnProperty(n)){const a=__tpts[n];if(a==="*")return t;` +
+      `return t.filter(d=>a.includes(d.name))}return t};` +
+      `return __tptf(${computeFn2}(${getState}()),${getState}())},`;
+    const newFile =
+      oldFile.slice(0, thunkMatch.index) +
+      wrapped +
+      oldFile.slice(thunkMatch.index + fullThunk.length);
+    showDiff(
+      oldFile,
+      newFile,
+      wrapped,
+      thunkMatch.index,
+      thunkMatch.index + fullThunk.length
+    );
+    return newFile;
+  }
+
+  // Method 2 (pre-2.1.238): anchor on the USE site, not the declaration.
+  // `tools:X,refreshTools:()=>F(G())` is a unique code shape; the declaration
+  // is not, so the old form matched `let X=F(S)` and demanded the use within
+  // 2500 chars. CC 2.1.235 pushed them 2,672 apart (MCP prewait code landed
+  // between) and the sub-patch silently stopped matching. A declaration
+  // dominates its use, so once X and F are pinned by the use site, the nearest
+  // preceding `let X=F(S)` is correct at any distance and no window needs
+  // maintaining.
   const usePattern =
     /tools:([$\w]+),refreshTools:\(\)=>([$\w]+)\(([$\w]+)\(\)\)/;
   const useMatch = oldFile.match(usePattern);
