@@ -3,6 +3,7 @@ import {
   loadIdentifierMapUnion,
   clearIdentifierMapUnionCache,
   buildSearchRegexFromPieces,
+  applyIdentifierMapping,
 } from './systemPromptSync';
 import * as systemPromptDownload from './systemPromptDownload';
 
@@ -108,6 +109,27 @@ describe('systemPromptSync.ts', () => {
       const pattern = buildSearchRegexFromPieces(prose, '2.1.179');
       expect(pattern).toContain('\\[note\\]');
       expect(pattern).not.toContain('\\[[\\w$]+\\]');
+    });
+  });
+
+  describe('applyIdentifierMapping', () => {
+    // system-prompt-coordinator-mode 2.1.239: COMMS_MODE_FLAG (slot 0) gates
+    // EVERY_MESSAGE_TO_USER_NOTE (slot 1) via a ternary whose false-branch is
+    // a literal string. Regression for the mis-bind fix: the override must
+    // ship the conditional, not the note unconditionally — confirms the
+    // ternary shape (both identifiers substituted, literal string preserved)
+    // survives applyIdentifierMapping/substituteInInterpolations.
+    it('preserves ternary shape when substituting a flag + guarded note', () => {
+      const content =
+        '${COMMS_MODE_FLAG?EVERY_MESSAGE_TO_USER_NOTE:"Every message you send is to the user."}';
+      const result = applyIdentifierMapping(
+        content,
+        [0, 1],
+        { 0: 'COMMS_MODE_FLAG', 1: 'EVERY_MESSAGE_TO_USER_NOTE' },
+        ['e', 'xjv'],
+        '2.1.239'
+      );
+      expect(result).toBe('${e?xjv:"Every message you send is to the user."}');
     });
   });
 });

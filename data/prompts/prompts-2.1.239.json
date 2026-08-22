@@ -68648,7 +68648,7 @@
         3
       ],
       "identifierMap": {
-        "0": "EVERY_MESSAGE_TO_USER_FLAG",
+        "0": "COMMS_MODE_FLAG",
         "1": "EVERY_MESSAGE_TO_USER_NOTE",
         "2": "AGENT_TOOL_NAME",
         "3": "SENDMESSAGE_TOOL_NAME",

@@ -171,8 +171,10 @@ const CURATED_IDENTIFIER_MAPS = {
     // gated `CLAUDE_CODE_SIMPLE||!zci()`) was inserted between the workflow
     // bullet and the subscribe_pr_activity paragraph. Slots re-derived in
     // first-seen order from `let t=…,r=…,n=…,o=…,i=…,s=…,a=…;return\`…\``:
-    //   [0]  e   ternary test, reused for both `${e?xjv:"…"}` and
-    //            `${e?Ijv:"…"}` — "${e?xjv:…} Worker results…"
+    //   [0]  e   ternary test = hasCommsRoledServer(mcpClients) (call site
+    //            @9756201), reused for both `${e?xjv:"…"}` and `${e?Ijv:"…"}`
+    //            — named COMMS_MODE_FLAG, not an "every message" flag: it
+    //            gates comms-mode framing, not just the note at [1].
     //   [1]  xjv "…} Worker results…" (true-branch note for [0])
     //   [2]  Li  "- **${Li}** - Spawn a new worker"
     //   [3]  Jm  "- **${Jm}** - Continue an existing worker…"
@@ -196,7 +198,7 @@ const CURATED_IDENTIFIER_MAPS = {
         2, 2, 2, 3, 2, 3, 3, 3, 2, 2, 9, 3,
       ],
       identifierMap: {
-        0: 'EVERY_MESSAGE_TO_USER_FLAG',
+        0: 'COMMS_MODE_FLAG',
         1: 'EVERY_MESSAGE_TO_USER_NOTE',
         2: 'AGENT_TOOL_NAME',
         3: 'SENDMESSAGE_TOOL_NAME',
