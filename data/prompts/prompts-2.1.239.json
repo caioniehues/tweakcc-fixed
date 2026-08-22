@@ -68648,17 +68648,17 @@
         3
       ],
       "identifierMap": {
-        "0": "AGENT_TOOL_NAME",
-        "1": "SENDMESSAGE_TOOL_NAME",
-        "2": "TASKSTOP_TOOL_NAME",
-        "3": "WORKFLOW_CONDITIONAL_TOOL_NOTE",
-        "4": "LISTAGENTS_TOOL_NAME",
-        "5": "WORKER_TOOLS_INTRO_TEXT",
-        "6": "LAUNCH_ANNOUNCE_NOTE",
-        "7": "SYSTEM_REMINDER_OPENING_TEXT",
-        "8": "WORKER_TOOLS_INTRO_TEXT",
-        "9": "SYSTEM_PROMPT_COORDINATOR_MODE_VAR_9",
-        "10": "SYSTEM_PROMPT_COORDINATOR_MODE_VAR_10"
+        "0": "EVERY_MESSAGE_TO_USER_FLAG",
+        "1": "EVERY_MESSAGE_TO_USER_NOTE",
+        "2": "AGENT_TOOL_NAME",
+        "3": "SENDMESSAGE_TOOL_NAME",
+        "4": "TASKSTOP_TOOL_NAME",
+        "5": "WORKFLOW_CONDITIONAL_TOOL_NOTE",
+        "6": "SKILL_LOAD_TOOL_NOTE",
+        "7": "CROSS_SESSION_PEERS_NOTE",
+        "8": "LAUNCH_ANNOUNCE_NOTE",
+        "9": "SYSTEM_REMINDER_OPENING_TEXT",
+        "10": "WORKER_TOOLS_INTRO_TEXT"
       },
       "version": "2.1.239"
     },

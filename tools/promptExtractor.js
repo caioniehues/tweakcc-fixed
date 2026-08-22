@@ -164,6 +164,51 @@ const CURATED_IDENTIFIER_MAPS = {
         7: 'WORKER_TOOLS_INTRO_TEXT',
       },
     },
+    // CC 2.1.239 (verified against the pristine cli.js, function `Djv(e)` at
+    // the "orchestrates software engineering tasks across multiple workers"
+    // site): the ternary test itself (`e`) is now a DISTINCT captured slot
+    // from its true-branch note (`xjv`), and a new skill-loading bullet (`i`,
+    // gated `CLAUDE_CODE_SIMPLE||!zci()`) was inserted between the workflow
+    // bullet and the subscribe_pr_activity paragraph. Slots re-derived in
+    // first-seen order from `let t=…,r=…,n=…,o=…,i=…,s=…,a=…;return\`…\``:
+    //   [0]  e   ternary test, reused for both `${e?xjv:"…"}` and
+    //            `${e?Ijv:"…"}` — "${e?xjv:…} Worker results…"
+    //   [1]  xjv "…} Worker results…" (true-branch note for [0])
+    //   [2]  Li  "- **${Li}** - Spawn a new worker"
+    //   [3]  Jm  "- **${Jm}** - Continue an existing worker…"
+    //   [4]  tG  "- **${tG}** - Stop a running worker"
+    //   [5]  a   "- **${A$}**… Run a multi-step subagent pipeline" (workflow
+    //            bullet, gated `m$()`)
+    //   [6]  i   "- **${Of}** - Load a skill's full instructions inline…"
+    //            (skill-load bullet, gated `CLAUDE_CODE_SIMPLE||!zci()`) — NEW
+    //   [7]  s   "- **${r_} / ${Jm}** (cross-session…) - Other Claude
+    //            sessions appear as peers…" (gated `og()`) — still present in
+    //            2.1.239 (74 "cross-session" hits in the pristine bundle);
+    //            it renders as literal text in the JSON pieces because the
+    //            bullet body lives inside `s`'s own nested template, not the
+    //            coordinator prompt's top-level pieces.
+    //   [8]  Ijv "…${e?Ijv:"briefly tell the user what you launched"}…"
+    //   [9]  hxa "…opens with \`${hxa}\`"
+    //   [10] o   "${o}\n\n## 4. Task Workflow" (worker-tools intro sentence)
+    {
+      identifiers: [
+        0, 1, 2, 3, 4, 5, 6, 7, 2, 3, 0, 8, 2, 9, 2, 10, 3, 4, 2, 3, 2, 4, 3,
+        2, 2, 2, 3, 2, 3, 3, 3, 2, 2, 9, 3,
+      ],
+      identifierMap: {
+        0: 'EVERY_MESSAGE_TO_USER_FLAG',
+        1: 'EVERY_MESSAGE_TO_USER_NOTE',
+        2: 'AGENT_TOOL_NAME',
+        3: 'SENDMESSAGE_TOOL_NAME',
+        4: 'TASKSTOP_TOOL_NAME',
+        5: 'WORKFLOW_CONDITIONAL_TOOL_NOTE',
+        6: 'SKILL_LOAD_TOOL_NOTE',
+        7: 'CROSS_SESSION_PEERS_NOTE',
+        8: 'LAUNCH_ANNOUNCE_NOTE',
+        9: 'SYSTEM_REMINDER_OPENING_TEXT',
+        10: 'WORKER_TOOLS_INTRO_TEXT',
+      },
+    },
   ],
   // 2.1.224 grew this from one slot to three, and fuzzy carryover kept the old
   // 2.1.221 name on slot 0 — which is now the WRONG slot. Verified at the
