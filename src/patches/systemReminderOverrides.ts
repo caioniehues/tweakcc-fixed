@@ -844,7 +844,7 @@ const COMPACT_FILE_REF_INJECTION: ReminderInjection = {
         {
           placeholder: '${oO.name}',
           resolve: template =>
-            template.match(/\$\{([$\w]+\.name)\}/)?.[1] ?? null,
+            template.match(/\$\{([$\w]+(?:\.name)?)\}/)?.[1] ?? null,
         },
       ],
       body,
