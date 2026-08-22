@@ -57,6 +57,13 @@ describe('findAllPromptPieceMatches', () => {
     );
   });
 
+  it('keeps a fully-literal ${"..."} / ${\'...\'} interpolation as literal text, unlike a real expression', async () => {
+    await expectEquivalent(
+      ['prefix ${"literal text"} ${\'more\'} ${a.b()} suffix'],
+      'prefix ${"literal text"} ${\'more\'} ${x?y:z} suffix'
+    );
+  });
+
   it('returns greedy captures with the same backtracking as RegExp', async () => {
     const pieces = ['long enough prefix ${', 'ab and second ${', '[old]} tail'];
     await expectEquivalent(

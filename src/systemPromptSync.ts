@@ -1305,8 +1305,18 @@ export const buildSearchRegexFromPieces = (
       );
     }
 
-    // Stash inline ${...} interpolations behind a sentinel before regex-escape.
-    piece = piece.replace(/\$\{[^{}]*\}/g, INTERP_SENTINEL);
+    // Stash inline ${...} interpolations behind a sentinel before regex-escape
+    // — EXCEPT a fully-literal string interpolation (${"..."} / ${'...'}),
+    // which carries no minified identifier and differs Mac↔Linux not at all.
+    // Wildcarding it throws away real disambiguating text (it can be the
+    // entire body of a piece), which is what makes an otherwise-unique site
+    // match multiple places in cli.js. Leave it as literal source text so the
+    // normal escaping below matches it exactly.
+    piece = piece.replace(/\$\{([^{}]*)\}/g, (m, inner) =>
+      /^"(?:[^"\\]|\\.)*"$|^'(?:[^'\\]|\\.)*'$/.test(inner.trim())
+        ? m
+        : INTERP_SENTINEL
+    );
 
     // Stash backslashes behind a sentinel before regex-escape so the
     // alternation step at the end can match either the cooked or raw form.

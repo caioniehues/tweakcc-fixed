@@ -636,13 +636,6 @@
     "text": "- Use `find` via ",
     "verdict": "catalogue"
   },
-  "b461a01a940169ca": {
-    "desc": "Commenting-enabled branch of the runtime-capabilities note in skill-artifact-editor-template-runtime-capabilities-note (`t = e ? \u2026 : \u2026` at cli.js@22684390). Successor to skill-artifact-live-editor-capabilities-with-commenting, which CC 2.1.234 reworded from 'persistence' to 'saving'.",
-    "id": "skill-artifact-editor-template-capabilities-with-commenting",
-    "name": "Artifact editor template: capabilities wired, with commenting",
-    "text": "editing, saving, and commenting are",
-    "verdict": "catalogue"
-  },
   "b4c2ab68c83bdabf": {
     "label": "TOOL_DESCRIPTION_CHROME_MULTIPLE_BROWSERS_NONE_SELECTED_VAR_1",
     "promptId": "tool-description-chrome-multiple-browsers-none-selected",
@@ -717,13 +710,6 @@
     "reason": "command list inside a surrounding constraint",
     "text": "ls/find/cat/stat/wc/head/tail and similar",
     "verdict": "glue"
-  },
-  "ccb8d3a4c9c97214": {
-    "desc": "Commenting-disabled branch of the runtime-capabilities note in skill-artifact-editor-template-runtime-capabilities-note (`t = e ? \u2026 : \u2026` at cli.js@22684390). Successor to skill-artifact-live-editor-capabilities-without-commenting, which CC 2.1.234 reworded from 'persistence' to 'saving'.",
-    "id": "skill-artifact-editor-template-capabilities-without-commenting",
-    "name": "Artifact editor template: capabilities wired, without commenting",
-    "text": "editing and saving are",
-    "verdict": "catalogue"
   },
   "cf2fdd19127e707f": {
     "desc": "Sentence appended to the artifact-attach meta message when the artifact's watch was stopped earlier in the session: no republish notice will come and Claude must not watch it again unless the user asks.",
