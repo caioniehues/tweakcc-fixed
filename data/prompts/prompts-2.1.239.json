@@ -12622,72 +12622,6 @@
       "version": "2.1.233"
     },
     {
-      "name": "/clear action",
-      "id": "data-usage-nudge-correction-spiral-action",
-      "description": "The action string of the \"correction-spiral\" usage-nudge object, injected into model context as part of the usage-nudge catalog.",
-      "pieces": [
-        "/clear"
-      ],
-      "identifiers": [],
-      "identifierMap": {},
-      "version": "2.1.206"
-    },
-    {
-      "name": "/clear action",
-      "id": "data-usage-nudge-correction-spiral-action",
-      "description": "The action string of the \"correction-spiral\" usage-nudge object, injected into model context as part of the usage-nudge catalog.",
-      "pieces": [
-        "/clear"
-      ],
-      "identifiers": [],
-      "identifierMap": {},
-      "version": "2.1.206"
-    },
-    {
-      "name": "/clear action",
-      "id": "data-usage-nudge-correction-spiral-action",
-      "description": "The action string of the \"correction-spiral\" usage-nudge object, injected into model context as part of the usage-nudge catalog.",
-      "pieces": [
-        "/clear"
-      ],
-      "identifiers": [],
-      "identifierMap": {},
-      "version": "2.1.206"
-    },
-    {
-      "name": "/compact action",
-      "id": "data-usage-nudge-large-context-stale-files-action",
-      "description": "The action string of the \"large-context-stale-files\" usage-nudge object, injected into model context as part of the usage-nudge catalog.",
-      "pieces": [
-        "/compact"
-      ],
-      "identifiers": [],
-      "identifierMap": {},
-      "version": "2.1.206"
-    },
-    {
-      "name": "/compact action",
-      "id": "data-usage-nudge-large-context-stale-files-action",
-      "description": "The action string of the \"large-context-stale-files\" usage-nudge object, injected into model context as part of the usage-nudge catalog.",
-      "pieces": [
-        "/compact"
-      ],
-      "identifiers": [],
-      "identifierMap": {},
-      "version": "2.1.206"
-    },
-    {
-      "name": "/compact or /clear action",
-      "id": "data-usage-nudge-context-filling-up-action",
-      "description": "The action string of the \"context-filling-up\" usage-nudge object, injected into model context as part of the usage-nudge catalog.",
-      "pieces": [
-        "/compact or /clear"
-      ],
-      "identifiers": [],
-      "identifierMap": {},
-      "version": "2.1.218"
-    },
-    {
       "name": "Slash Command: /extra-usage — renamed to /usage-credits",
       "id": "slash-command-extra-usage-renamed-to-usage-credits",
       "description": "Tells the model the invoked command no longer exists under that name and that /usage-credits is the current one, so it does not keep referring the user to a dead command.",
@@ -12697,61 +12631,6 @@
       "identifiers": [],
       "identifierMap": {},
       "version": "2.1.233"
-    },
-    {
-      "name": "/mcp action",
-      "id": "data-usage-nudge-mcp-expand-action",
-      "description": "The action string of the \"mcp-discovery\" usage-nudge object, injected into model context as part of the usage-nudge catalog.",
-      "pieces": [
-        "/mcp"
-      ],
-      "identifiers": [],
-      "identifierMap": {},
-      "version": "2.1.206"
-    },
-    {
-      "name": "/model action",
-      "id": "data-usage-nudge-opus-on-pro-near-limit-action",
-      "description": "The action string of the \"opus-on-pro-near-limit\" usage-nudge object, injected into model context as part of the usage-nudge catalog.",
-      "pieces": [
-        "/model"
-      ],
-      "identifiers": [],
-      "identifierMap": {},
-      "version": "2.1.206"
-    },
-    {
-      "name": "/model action",
-      "id": "data-usage-nudge-opus-on-pro-near-limit-action",
-      "description": "The action string of the \"opus-on-pro-near-limit\" usage-nudge object, injected into model context as part of the usage-nudge catalog.",
-      "pieces": [
-        "/model"
-      ],
-      "identifiers": [],
-      "identifierMap": {},
-      "version": "2.1.206"
-    },
-    {
-      "name": "/model action",
-      "id": "data-usage-nudge-opus-on-pro-near-limit-action",
-      "description": "The action string of the \"opus-on-pro-near-limit\" usage-nudge object, injected into model context as part of the usage-nudge catalog.",
-      "pieces": [
-        "/model"
-      ],
-      "identifiers": [],
-      "identifierMap": {},
-      "version": "2.1.206"
-    },
-    {
-      "name": "/model action",
-      "id": "data-usage-nudge-opus-on-pro-near-limit-action",
-      "description": "The action string of the \"opus-on-pro-near-limit\" usage-nudge object, injected into model context as part of the usage-nudge catalog.",
-      "pieces": [
-        "/model"
-      ],
-      "identifiers": [],
-      "identifierMap": {},
-      "version": "2.1.206"
     },
     {
       "name": "Data: /teleport Remote Control session disconnected",
